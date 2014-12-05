@@ -1,3 +1,14 @@
+eblob (0.22.13-1) unstable; urgency=low
+
+  * doc: updated description of json stat.
+  * json: added workaround copying string to rapidjson value.
+  * indexsort: changed level of log at sanity check while applying binlog. At startup added check that index is unsorted before sort it.
+  * json: added stat_file_time and stat_file_error to json statistics. Added string representation for timestamps in json.
+  * flags: added EBLOB_AUTO_INDEXSORT: if this flag is set - eblob will force sorting blob's index after the blob is closed
+  * json: fixed comment indent
+
+ -- Kirill Smorodinnikov <shaitkir@gmail.com>  Fri, 05 Dec 2014 16:49:45 +0400
+
 eblob (0.22.13) unstable; urgency=low
 
   * index: bctl->sort must be set before filling index block
