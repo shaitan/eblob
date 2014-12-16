@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.22.13-1
+Version:	0.22.13-2
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -108,6 +108,9 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Tue Dec 16 2014 Kirill Smorodinnikov <shaitkir@gmail.com> - 0.22.13-2
+- indexsort: do not use binlog and do not flush cache while sorting index on init_load.
+
 * Fri Dec 05 2014 Kirill Smorodinnikov <shaitkir@gmail.com> - 0.22.13-1
 - doc: updated description of json stat.
 - json: added workaround copying string to rapidjson value.

@@ -1,3 +1,9 @@
+eblob (0.22.13-2) unstable; urgency=low
+
+  * indexsort: do not use binlog and do not flush cache while sorting index on init_load.
+
+ -- Kirill Smorodinnikov <shaitkir@gmail.com>  Tue, 16 Dec 2014 12:44:44 +0400
+
 eblob (0.22.13-1) unstable; urgency=low
 
   * doc: updated description of json stat.
