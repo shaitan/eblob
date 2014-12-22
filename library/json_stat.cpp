@@ -9,9 +9,9 @@ extern "C" {
 #include <sys/stat.h>
 #include <sys/time.h>
 
-#include <react/rapidjson/document.h>
-#include <react/rapidjson/writer.h>
-#include <react/rapidjson/stringbuffer.h>
+#include <handystats/rapidjson/document.h>
+#include <handystats/rapidjson/writer.h>
+#include <handystats/rapidjson/stringbuffer.h>
 
 /*!
  * Eblob json statistics has follow schema
@@ -156,21 +156,14 @@ static void eblob_stat_add_timestamp(rapidjson::Value &stat, const char *name, r
 	timeval tv;
 	gettimeofday(&tv, NULL);
 	eblob_stat_add_timestamp_raw(stat, name, tv, allocator);
-	stat.AddMember((std::string("string_") + name).c_str(), print_time(&tv), allocator);
+	rapidjson::Value ts_val(print_time(&tv), allocator);
+	stat.AddMember((std::string("string_") + name).c_str(), allocator, ts_val, allocator);
 }
 
 static void eblob_stat_global_json(struct eblob_backend *b, rapidjson::Value &stat, rapidjson::Document::AllocatorType &allocator)
 {
 	for (uint32_t i = EBLOB_GST_MIN + 1; i < EBLOB_GST_MAX; i++)
 		stat.AddMember(eblob_stat_get_name(b->stat, i), eblob_stat_get(b->stat, i), allocator);
-
-	timeval stat_time;
-	stat_time.tv_sec = b->stat_file_time;
-	stat_time.tv_usec = 0;
-	eblob_stat_add_timestamp_raw(stat, "stat_file_time", stat_time, allocator);
-	stat.AddMember("string_stat_file_time_", print_time(&stat_time), allocator);
-	stat.AddMember("stat_file_error", b->stat_file_error, allocator);
-	stat.AddMember("string_stat_file_error", strerror(-b->stat_file_error), allocator);
 }
 
 static void eblob_stat_summary_json(struct eblob_backend *b, rapidjson::Value &stat, rapidjson::Document::AllocatorType &allocator)

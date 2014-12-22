@@ -49,7 +49,7 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "react/eblob_react.h"
+#include "measure_points.h"
 
 #define DIFF(s, e) ((e).tv_sec - (s).tv_sec) * 1000000 + ((e).tv_usec - (s).tv_usec)
 
@@ -188,7 +188,7 @@ int eblob_event_set(struct eblob_event *event)
 		err = -err;
 		goto err_out_unlock;
 	}
-	
+
 err_out_unlock:
 	pthread_mutex_unlock(&event->lock);
 err_out_exit:
@@ -325,9 +325,10 @@ void eblob_bctl_release(struct eblob_base_ctl *bctl)
 /*!
  * Writes all \a iov wrt record position in base
  */
-static int eblob_writev_raw(struct eblob_key *key, struct eblob_write_control *wc,
+static int eblob_writev_raw(struct eblob_backend *b, struct eblob_key *key, struct eblob_write_control *wc,
 		const struct eblob_iovec *iov, uint16_t iovcnt)
 {
+	FORMATTED(HANDY_TIMER_SCOPE, ("eblob.%u.disk.write.raw", b->stat_id));
 	const uint64_t offset_min = wc->ctl_data_offset + sizeof(struct eblob_disk_control);
 	const uint64_t offset_max = wc->ctl_data_offset + wc->total_size;
 	const struct eblob_iovec *tmp;
@@ -1094,7 +1095,7 @@ static void eblob_wc_to_dc(const struct eblob_key *key, const struct eblob_write
 static int eblob_commit_disk(struct eblob_backend *b, struct eblob_key *key,
 		struct eblob_write_control *wc, int remove)
 {
-	react_start_action(ACTION_EBLOB_COMMIT_DISK);
+	FORMATTED(HANDY_TIMER_SCOPE, ("eblob.%u.disk.commit", b->stat_id));
 
 	struct eblob_disk_control dc;
 	int err;
@@ -1124,7 +1125,6 @@ static int eblob_commit_disk(struct eblob_backend *b, struct eblob_key *key,
 	eblob_dump_wc(b, key, wc, "eblob_commit_disk", err);
 
 err_out_exit:
-	react_stop_action(ACTION_EBLOB_COMMIT_DISK);
 	return err;
 }
 
@@ -1133,7 +1133,6 @@ err_out_exit:
  */
 int __eblob_write_ll(int fd, void *data, size_t size, off_t offset)
 {
-	react_start_action(ACTION_EBLOB_WRITE_LL);
 	int err = 0;
 	ssize_t bytes;
 
@@ -1151,7 +1150,6 @@ again:
 		offset += bytes;
 	}
 err_out_exit:
-	react_stop_action(ACTION_EBLOB_WRITE_LL);
 	return err;
 }
 
@@ -1396,7 +1394,7 @@ int eblob_splice_data(int fd_in, uint64_t off_in, int fd_out, uint64_t off_out, 
 static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct eblob_key *key,
 		struct eblob_write_control *wc, int for_write, struct eblob_ram_control *old)
 {
-	react_start_action(ACTION_EBLOB_FILL_WRITE_CONTROL_FROM_RAM);
+	FORMATTED(HANDY_TIMER_SCOPE, ("eblob.%u.disk.fill_write_control", b->stat_id));
 
 	struct eblob_ram_control ctl;
 	struct eblob_disk_control dc;
@@ -1458,7 +1456,6 @@ static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct ebl
 	eblob_dump_wc(b, key, wc, "eblob_fill_write_control_from_ram", err);
 
 err_out_exit:
-	react_stop_action(ACTION_EBLOB_FILL_WRITE_CONTROL_FROM_RAM);
 	return err;
 }
 
@@ -1516,7 +1513,7 @@ static int eblob_write_prepare_disk_ll(struct eblob_backend *b, struct eblob_key
 		enum eblob_copy_flavour copy, uint64_t copy_offset,
 		struct eblob_ram_control *old)
 {
-	react_start_action(ACTION_EBLOB_WRITE_PREPARE_DISK_LL);
+	FORMATTED(HANDY_TIMER_SCOPE, ("eblob.%u.disk.write.prepare.disk.ll", b->stat_id));
 
 	struct eblob_base_ctl *ctl = NULL;
 	ssize_t err = 0;
@@ -1678,6 +1675,8 @@ static int eblob_write_prepare_disk_ll(struct eblob_backend *b, struct eblob_key
 		else
 			err = eblob_copy_data(old->bctl->data_fd, off_in, wc->data_fd, off_out, size);
 
+		FORMATTED(HANDY_GAUGE_SET, ("eblob.%u.disk.move.size", b->stat_id), size);
+
 		if (err == 0)
 			eblob_stat_inc(b->stat, EBLOB_GST_READ_COPY_UPDATE);
 
@@ -1715,14 +1714,12 @@ static int eblob_write_prepare_disk_ll(struct eblob_backend *b, struct eblob_key
 
 	eblob_dump_wc(b, key, wc, "eblob_write_prepare_disk_ll: complete", 0);
 
-	react_stop_action(ACTION_EBLOB_WRITE_PREPARE_DISK_LL);
 	return 0;
 
 err_out_rollback:
 	ctl->data_offset -= wc->total_size;
 	ctl->index_size -= sizeof(struct eblob_disk_control);
 err_out_exit:
-	react_stop_action(ACTION_EBLOB_WRITE_PREPARE_DISK_LL);
 	return err;
 }
 
@@ -1737,7 +1734,7 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 		enum eblob_copy_flavour copy, uint64_t copy_offset, struct eblob_ram_control *old,
 		size_t defrag_generation)
 {
-	react_start_action(ACTION_EBLOB_WRITE_PREPARE_DISK);
+	FORMATTED(HANDY_TIMER_SCOPE, ("eblob.%u.disk.write.prepare.disk", b->stat_id));
 
 	ssize_t err = 0;
 	uint64_t size;
@@ -1775,7 +1772,6 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 
 err_out_exit:
 	pthread_mutex_unlock(&b->lock);
-	react_stop_action(ACTION_EBLOB_WRITE_PREPARE_DISK);
 	return err;
 }
 
@@ -1785,8 +1781,7 @@ err_out_exit:
 int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key,
 		uint64_t size, uint64_t flags)
 {
-	react_start_action(ACTION_EBLOB_WRITE_PREPARE);
-
+	FORMATTED(HANDY_TIMER_SCOPE, ("eblob.%u.disk.write.prepare", b->stat_id));
 	struct eblob_write_control wc = { .offset = 0 };
 	struct eblob_ram_control old;
 	int err;
@@ -1827,7 +1822,6 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key,
 	}
 
 err_out_exit:
-	react_stop_action(ACTION_EBLOB_WRITE_PREPARE);
 	eblob_dump_wc(b, key, &wc, "eblob_write_prepare: finished", err);
 	return err;
 }
@@ -1835,12 +1829,11 @@ err_out_exit:
 /**
  * eblob_hash() - general hash routine. For now it's simple sha512.
  */
-int eblob_hash(struct eblob_backend *b __attribute_unused__, void *dst,
+int eblob_hash(struct eblob_backend *b, void *dst,
 		unsigned int dsize __attribute_unused__, const void *src, uint64_t size)
 {
-	react_start_action(ACTION_EBLOB_HASH);
+	FORMATTED(HANDY_TIMER_SCOPE, ("eblob.%u.hash", b->stat_id));
 	sha512_buffer(src, size, dst);
-	react_stop_action(ACTION_EBLOB_HASH);
 	return 0;
 }
 
@@ -1855,12 +1848,11 @@ int eblob_hash(struct eblob_backend *b __attribute_unused__, void *dst,
 static int eblob_csum(struct eblob_backend *b, void *dst, unsigned int dsize,
 		struct eblob_write_control *wc)
 {
-	react_start_action(ACTION_EBLOB_CSUM);
+	FORMATTED(HANDY_TIMER_SCOPE, ("eblob.%u.csum", b->stat_id));
 	long page_size = sysconf(_SC_PAGE_SIZE);
 	off_t off = wc->ctl_data_offset + sizeof(struct eblob_disk_control);
 	off_t offset = off & ~(page_size - 1);
 	size_t mapped_size = ALIGN(wc->total_data_size + off - offset, page_size);
-	react_add_stat_int("mapped_size", mapped_size);
 	void *data, *ptr;
 	int err = 0;
 
@@ -1876,7 +1868,6 @@ static int eblob_csum(struct eblob_backend *b, void *dst, unsigned int dsize,
 	munmap(data, mapped_size);
 
 err_out_exit:
-	react_stop_action(ACTION_EBLOB_CSUM);
 	return err;
 }
 
@@ -1887,7 +1878,7 @@ err_out_exit:
 static int eblob_write_commit_footer(struct eblob_backend *b, struct eblob_key *key,
                                      struct eblob_write_control *wc)
 {
-	react_start_action(ACTION_EBLOB_WRITE_COMMIT_FOOTER);
+	FORMATTED(HANDY_TIMER_SCOPE, ("eblob.%u.disk.write_footer", b->stat_id));
 	off_t offset = wc->ctl_data_offset + wc->total_size - sizeof(struct eblob_disk_footer);
 	struct eblob_disk_footer f;
 	int err = 0;
@@ -1923,7 +1914,6 @@ err_out_sync:
 	err = 0;
 
 err_out_exit:
-	react_stop_action(ACTION_EBLOB_WRITE_COMMIT_FOOTER);
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_write_commit_footer: Ok: data_fd: %d"
 	          ", ctl_data_offset: %" PRIu64 ", data_offset: %" PRIu64
 	          ", index_fd: %d, index_offset: %" PRIu64 ", size: %" PRIu64
@@ -1941,7 +1931,7 @@ err_out_exit:
 static int eblob_write_commit_nolock(struct eblob_backend *b, struct eblob_key *key,
 		struct eblob_write_control *wc)
 {
-	react_start_action(ACTION_EBLOB_WRITE_COMMIT_NOLOCK);
+	FORMATTED(HANDY_TIMER_SCOPE, ("eblob.%u.disk.write_commit", b->stat_id));
 
 	int err;
 
@@ -1961,7 +1951,6 @@ static int eblob_write_commit_nolock(struct eblob_backend *b, struct eblob_key *
 
 err_out_exit:
 	eblob_dump_wc(b, key, wc, "eblob_write_commit_nolock", err);
-	react_stop_action(ACTION_EBLOB_WRITE_COMMIT_NOLOCK);
 	return err;
 }
 
@@ -2084,7 +2073,7 @@ static int eblob_try_overwritev(struct eblob_backend *b, struct eblob_key *key,
 	wc->size = size;
 	wc->total_data_size = wc->offset + wc->size;
 
-	err = eblob_writev_raw(key, wc, iov, iovcnt);
+	err = eblob_writev_raw(b, key, wc, iov, iovcnt);
 	if (err) {
 		eblob_dump_wc(b, key, wc, "eblob_try_overwrite: ERROR-eblob_writev_raw", err);
 		goto err_out_exit;
@@ -2179,7 +2168,7 @@ int eblob_plain_writev(struct eblob_backend *b, struct eblob_key *key,
 	wc.flags = flags;
 	if (b->cfg.blob_flags & EBLOB_NO_FOOTER)
 		wc.flags |= BLOB_DISK_CTL_NOCSUM;
-	err = eblob_writev_raw(key, &wc, iov, iovcnt);
+	err = eblob_writev_raw(b, key, &wc, iov, iovcnt);
 	if (err)
 		goto err_out_unlock;
 
@@ -2197,6 +2186,9 @@ err_out_unlock:
 			"size: %" PRIu64 ", offset: %" PRIu64 ": %zd.\n",
 			eblob_dump_id(key->id), __func__, wc.data_fd, wc.size,
 			wc.data_offset + wc.offset, err);
+	if (err) {
+		FORMATTED(HANDY_COUNTER_INCREMENT, ("eblob.%u.disk.plain.write.errors", b->stat_id), 1);
+	}
 	return err;
 }
 
@@ -2207,8 +2199,6 @@ int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 		void *data, uint64_t offset, uint64_t size,
 		uint64_t flags)
 {
-	react_start_action(ACTION_EBLOB_WRITE);
-
 	const struct eblob_iovec iov = {
 		.base = data,
 		.size = size,
@@ -2216,7 +2206,6 @@ int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 	};
 
 	int err = eblob_writev(b, key, &iov, 1, flags);
-	react_stop_action(ACTION_EBLOB_WRITE);
 	return err;
 }
 
@@ -2271,7 +2260,7 @@ int eblob_writev_return(struct eblob_backend *b, struct eblob_key *key,
 		const struct eblob_iovec *iov, uint16_t iovcnt, uint64_t flags,
 		struct eblob_write_control *wc)
 {
-	react_start_action(ACTION_EBLOB_WRITEV_RETURN);
+	FORMATTED(HANDY_TIMER_SCOPE, ("eblob.%u.disk.write", b->stat_id));
 
 	struct eblob_iovec_bounds bounds;
 	struct eblob_ram_control old;
@@ -2285,7 +2274,6 @@ int eblob_writev_return(struct eblob_backend *b, struct eblob_key *key,
 
 	err = check_writev_return_flags(flags, iovcnt);
 	if (err) {
-		react_stop_action(ACTION_EBLOB_WRITEV_RETURN);
 		return err;
 	}
 
@@ -2300,6 +2288,7 @@ int eblob_writev_return(struct eblob_backend *b, struct eblob_key *key,
 	err = eblob_try_overwritev(b, key, iov, iovcnt, wc, &old, &defrag_generation);
 	if (err == 0) {
 		/* We have overwritten old data - bail out */
+		FORMATTED(HANDY_COUNTER_INCREMENT, ("eblob.%u.disk.write.rewrite", b->stat_id), 1);
 		goto err_out_exit;
 	} else if (!(err == -E2BIG || err == -ENOENT || err == -EROFS)) {
 		/* Unknown error occurred during rewrite */
@@ -2342,7 +2331,7 @@ int eblob_writev_return(struct eblob_backend *b, struct eblob_key *key,
 	if (err)
 		goto err_out_exit;
 
-	err = eblob_writev_raw(key, wc, iov, iovcnt);
+	err = eblob_writev_raw(b, key, wc, iov, iovcnt);
 	if (err) {
 		eblob_dump_wc(b, key, wc, "eblob_writev: eblob_writev_raw: FAILED", err);
 		goto err_out_exit;
@@ -2356,7 +2345,9 @@ int eblob_writev_return(struct eblob_backend *b, struct eblob_key *key,
 
 err_out_exit:
 	eblob_dump_wc(b, key, wc, "eblob_writev: finished", err);
-	react_stop_action(ACTION_EBLOB_WRITEV_RETURN);
+	if (err) {
+		FORMATTED(HANDY_COUNTER_INCREMENT, ("eblob.%u.disk.write.errors", b->stat_id), 1);
+	}
 	return err;
 }
 
@@ -2365,7 +2356,7 @@ err_out_exit:
  */
 int eblob_remove(struct eblob_backend *b, struct eblob_key *key)
 {
-	react_start_action(ACTION_EBLOB_REMOVE);
+	FORMATTED(HANDY_TIMER_SCOPE, ("eblob.%u.disk.remove", b->stat_id));
 	struct eblob_ram_control ctl;
 	int err, disk;
 
@@ -2389,7 +2380,9 @@ int eblob_remove(struct eblob_backend *b, struct eblob_key *key)
 		eblob_dump_id(key->id), ctl.data_offset, ctl.size);
 
 err_out_exit:
-	react_stop_action(ACTION_EBLOB_REMOVE);
+	if (err && err != -ENOENT) {
+		FORMATTED(HANDY_COUNTER_INCREMENT, ("eblob.%u.disk.remove.errors", b->stat_id), 1);
+	}
 	return err;
 }
 
@@ -2400,6 +2393,7 @@ err_out_exit:
  */
 static int eblob_csum_ok(struct eblob_backend *b, struct eblob_write_control *wc)
 {
+	FORMATTED(HANDY_TIMER_SCOPE, ("eblob.%u.csum.ok", b->stat_id));
 	struct eblob_disk_footer *f;
 	unsigned char csum[EBLOB_ID_SIZE];
 	struct eblob_map_fd m;
@@ -2482,6 +2476,7 @@ err_out_exit:
 static int _eblob_read_ll(struct eblob_backend *b, struct eblob_key *key,
 		enum eblob_read_flavour csum, struct eblob_write_control *wc)
 {
+	FORMATTED(HANDY_TIMER_SCOPE, ("eblob.%u.disk.read", b->stat_id));
 	int err;
 	struct timeval start, end;
 	long csum_time;
@@ -2528,6 +2523,9 @@ static int _eblob_read_ll(struct eblob_backend *b, struct eblob_key *key,
 			csum, csum_time, err);
 
 err_out_exit:
+	if (err && err != -ENOENT) {
+		FORMATTED(HANDY_COUNTER_INCREMENT, ("eblob.%u.disk.read.errors", b->stat_id), 1);
+	}
 	return err;
 }
 
@@ -2537,8 +2535,6 @@ err_out_exit:
 static int eblob_read_ll(struct eblob_backend *b, struct eblob_key *key, int *fd,
 		uint64_t *offset, uint64_t *size, enum eblob_read_flavour csum)
 {
-	react_start_action(ACTION_EBLOB_READ);
-
 	struct eblob_write_control wc = { .size = 0 };
 	int err;
 
@@ -2553,7 +2549,6 @@ static int eblob_read_ll(struct eblob_backend *b, struct eblob_key *key, int *fd
 	*size = wc.size;
 	*offset = wc.data_offset;
 err:
-	react_stop_action(ACTION_EBLOB_READ);
 	return err;
 }
 
@@ -2621,7 +2616,7 @@ void eblob_data_unmap(struct eblob_map_fd *map)
 static int eblob_read_data_ll(struct eblob_backend *b, struct eblob_key *key,
 		uint64_t offset, char **dst, uint64_t *size, enum eblob_read_flavour csum)
 {
-	react_start_action(ACTION_EBLOB_READ_DATA);
+	FORMATTED(HANDY_TIMER_SCOPE, ("eblob.%u.disk.read_data", b->stat_id));
 	int err, fd;
 	void *data;
 	uint64_t record_offset, record_size;
@@ -2657,13 +2652,14 @@ static int eblob_read_data_ll(struct eblob_backend *b, struct eblob_key *key,
 	*size = record_size;
 	*dst = data;
 
-	react_stop_action(ACTION_EBLOB_READ_DATA);
 	return 0;
 
 err_out_free:
 	free(data);
 err_out_exit:
-	react_stop_action(ACTION_EBLOB_READ_DATA);
+	if (err && err != -ENOENT) {
+		FORMATTED(HANDY_COUNTER_INCREMENT, ("eblob.%u.disk.read_data.errors", b->stat_id), 1);
+	}
 	return err;
 }
 
@@ -2758,10 +2754,10 @@ int eblob_periodic(struct eblob_backend *b)
 		if (err != 0) {
 			EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err,
 				"eblob_stat_commit: FAILED");
+			FORMATTED(HANDY_COUNTER_INCREMENT, ("eblob.%u.disk.stat_commit.errors", b->stat_id), 1);
 		}
 
 		b->stat_file_time = t;
-		b->stat_file_error = err;
 	}
 
 	if (!(b->cfg.blob_flags & EBLOB_NO_FREE_SPACE_CHECK)) {
@@ -2859,6 +2855,8 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 		err = -ENOMEM;
 		goto err_out_exit;
 	}
+
+	b->stat_id = c->stat_id;
 
 	snprintf(stat_file, sizeof(stat_file), "%s.stat", c->file);
 	err = eblob_stat_init_backend(b, stat_file);
@@ -2974,7 +2972,6 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 		goto err_out_periodic_lock_destroy;
 
 	if (!(b->cfg.blob_flags & EBLOB_DISABLE_THREADS)) {
-
 		err = pthread_create(&b->sync_tid, NULL, eblob_sync_thread, b);
 		if (err) {
 			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: eblob sync thread creation failed: %d.\n", err);
