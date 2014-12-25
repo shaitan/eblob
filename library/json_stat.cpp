@@ -9,10 +9,6 @@ extern "C" {
 #include <sys/stat.h>
 #include <sys/time.h>
 
-#include <handystats/rapidjson/document.h>
-#include <handystats/rapidjson/writer.h>
-#include <handystats/rapidjson/stringbuffer.h>
-
 /*!
  * Eblob json statistics has follow schema
  * {
