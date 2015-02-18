@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.22.13-2
+Version:	0.22.13-3
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -108,6 +108,9 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Wed Feb 18 2015 Kirill Smorodinnikov <shaitkir@gmail.com> - 0.22.13-3
+- replaced some pure pwrite calls by using __eblob_write_ll wrapper
+
 * Tue Dec 16 2014 Kirill Smorodinnikov <shaitkir@gmail.com> - 0.22.13-2
 - indexsort: do not use binlog and do not flush cache while sorting index on init_load.
 
