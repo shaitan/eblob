@@ -86,6 +86,8 @@ static const size_t EBLOB_HASH_ENTRY_SIZE = sizeof(struct eblob_ram_control)
 /* Approx. size of l2hash entry (considering there wasn't a collision) */
 static const size_t EBLOB_L2HASH_ENTRY_SIZE = sizeof(struct eblob_l2hash_entry);
 
+static const uint64_t EBLOB_CSUM_CHUNK_SIZE = 1UL<<20;
+
 struct eblob_map_fd {
 	int			fd;
 	uint64_t		offset, size;
@@ -484,6 +486,7 @@ int eblob_cache_remove(struct eblob_backend *b, struct eblob_key *key);
 int eblob_cache_remove_nolock(struct eblob_backend *b, struct eblob_key *key);
 int eblob_cache_insert(struct eblob_backend *b, struct eblob_key *key,
 		struct eblob_ram_control *ctl);
+int eblob_cache_empty(struct eblob_backend *b);
 int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key,
 		struct eblob_ram_control *rctl);
 
@@ -587,5 +590,16 @@ static inline const char *eblob_want_defrag_string(int want_defrag)
 
 #define EBLOB_WARNC(log, severity, err, fmt, ...)	EBLOB_WARNX(log, severity, \
 		"%s (%d); " fmt, strerror(err), (int)err, ## __VA_ARGS__);
+
+/*
+ * eblob_disk_footer contains csum of one chunk of data.
+ * @csum - sha512 of one chunk of the data
+ *
+ * eblob_disk_footers are kept at the end of the recods. One footer per chunk of the data.
+ * Each chunk has fixed size = EBLOB_CSUM_CHUNK_SIZE
+ */
+struct eblob_disk_footer {
+	unsigned char			csum[EBLOB_ID_SIZE];
+} __attribute__ ((packed));
 
 #endif /* __EBLOB_BLOB_H */

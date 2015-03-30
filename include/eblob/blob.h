@@ -3,17 +3,17 @@
  * All rights reserved.
  *
  * This file is part of Eblob.
- * 
+ *
  * Eblob is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * Eblob is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with Eblob.  If not, see <http://www.gnu.org/licenses/>.
  */
@@ -221,6 +221,11 @@ struct eblob_disk_control {
 
 	/* This structure position in the blob file */
 	uint64_t		position;
+
+	/* size of preallocated spcae that could be used for data
+	 * excluding header/footer blocks
+	 */
+	 uint64_t		data_capacity;
 } __attribute__ ((packed));
 
 static inline void eblob_convert_disk_control(struct eblob_disk_control *ctl)
@@ -229,6 +234,7 @@ static inline void eblob_convert_disk_control(struct eblob_disk_control *ctl)
 	ctl->data_size = eblob_bswap64(ctl->data_size);
 	ctl->disk_size = eblob_bswap64(ctl->disk_size);
 	ctl->position = eblob_bswap64(ctl->position);
+	ctl->data_capacity = eblob_bswap64(ctl->data_capacity);
 }
 
 /* when set, reserve 10% of free space and return -ENOSPC when there is not enough free space to reserve */
@@ -429,7 +435,7 @@ struct eblob_iterate_callbacks {
 
 /**
  * Structure which controls which keys should be iterated over.
- * [start, stop] keys are inclusive. 
+ * [start, stop] keys are inclusive.
  */
 
 struct eblob_index_block {
@@ -576,7 +582,7 @@ struct eblob_write_control {
 	uint64_t			data_offset;
 
 	uint64_t			ctl_data_offset, ctl_index_offset;
-	uint64_t			total_size, total_data_size;
+	uint64_t			total_size, total_data_size, data_capacity;
 
 	int				on_disk;
 	/*
@@ -591,16 +597,6 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key,
 		uint64_t size, uint64_t flags);
 int eblob_write_commit(struct eblob_backend *b, struct eblob_key *key,
 		uint64_t size, uint64_t flags);
-
-struct eblob_disk_footer {
-	unsigned char			csum[EBLOB_ID_SIZE];
-	uint64_t			offset;
-} __attribute__ ((packed));
-
-static inline void eblob_convert_disk_footer(struct eblob_disk_footer *f)
-{
-	f->offset = eblob_bswap64(f->offset);
-}
 
 struct eblob_range_request {
 	unsigned char			start[EBLOB_ID_SIZE];
