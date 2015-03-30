@@ -118,6 +118,7 @@ class eblob {
 		void commit_hashed(const std::string &key, const uint64_t size = -1, const uint64_t flags = -1);
 		void plain_write(const struct eblob_key &key, const void *data, const uint64_t offset,
 				const uint64_t size, const uint64_t flags);
+		void plain_write_hashed(const std::string &key, const std::string &data, const uint64_t offset, const uint64_t flags);
 
 		void truncate(const struct eblob_key &key, const uint64_t size, const uint64_t flags = -1);
 		void truncate_hashed(const std::string &key, const uint64_t size, const uint64_t flags = -1);

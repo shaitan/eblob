@@ -132,6 +132,18 @@ public:
 		eblob::iterate(&cb, 0, reinterpret_cast<void *>(&it));
 		Py_END_ALLOW_THREADS
 	}
+
+	void prepare(const std::string &key, const uint64_t size) {
+		eblob::prepare_hashed(key, size, 0);
+	}
+
+	void commit(const std::string &key, const uint64_t size) {
+		eblob::commit_hashed(key, size, 0);
+	}
+
+	void plain_write(const std::string &key, const std::string &data, const uint64_t offset) {
+		eblob::plain_write_hashed(key, data, offset, 0);
+	}
 };
 
 BOOST_PYTHON_MODULE(libeblob_python) {
@@ -167,5 +179,8 @@ BOOST_PYTHON_MODULE(libeblob_python) {
 		.def("iterate", &eblob_python::py_iterate)
 		.def("start_defrag", &eblob::start_defrag)
 		.def("defrag_status", &eblob::defrag_status)
+		.def("prepare", &eblob_python::prepare)
+		.def("commit", &eblob_python::commit)
+		.def("plain_write", &eblob_python::plain_write)
 	;
 };

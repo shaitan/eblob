@@ -305,3 +305,11 @@ void eblob::plain_write(const struct eblob_key &key, const void *data, const uin
 		throw std::runtime_error(str.str());
 	}
 }
+
+void eblob::plain_write_hashed(const std::string &kdata, const std::string &data, const uint64_t offset, const uint64_t flags) {
+	struct eblob_key key;
+
+	eblob_hash(eblob_, key.id, sizeof(key.id), kdata.data(), kdata.size());
+	plain_write(key, data.data(), offset, data.size(), flags);
+}
+
