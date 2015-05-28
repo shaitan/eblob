@@ -283,6 +283,11 @@ static inline void eblob_convert_disk_control(struct eblob_disk_control *ctl)
  */
 #define EBLOB_AUTO_INDEXSORT			(1<<11)
 
+/*
+ * With this flag eblob_csum_ok will check csum even if record's footer is empty
+ */
+#define EBLOB_DONT_SKIP_EMPTY_FOOTER		(1<<12)
+
 struct eblob_config {
 	/* blob flags above */
 	unsigned int		blob_flags;
