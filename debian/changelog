@@ -1,3 +1,9 @@
+eblob (0.22.22~flag) unstable; urgency=low
+
+  * csum: add new flag that forces to check empty csum
+
+ -- Kirill Smorodinnikov <shaitkir@gmail.com>  Thu, 28 May 2015 18:08:33 +0400
+
 eblob (0.22.22) unstable; urgency=low
 
   * core: fixed failing write_prepare with -7 if it tries to overwrite record without footer by record with footer
