@@ -1,4 +1,4 @@
-eblob (0.22.22~flag) unstable; urgency=low
+eblob (0.22.23~flag) unstable; urgency=low
 
   * csum: add new flag that forces to check empty csum
 
