@@ -733,9 +733,9 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 		goto err_out_free_index;
 	}
 
-	if ((err = fsync(fd)) == -1) {
+	if ((err = eblob_fdatasync(fd)) == -1) {
 		err = -errno;
-		EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err, "defrag: indexsort: fsync: index: %d, size: %llu: %s",
+		EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err, "defrag: indexsort: eblob_fdatasync: index: %d, size: %llu: %s",
 			bctl->index, (unsigned long long)index_size, file);
 		goto err_out_free_index;
 	}
@@ -767,10 +767,10 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 		goto err_unlock_hash;
 	}
 
-	err = fsync(fd);
+	err = eblob_fdatasync(fd);
 	if (err == -1) {
 		err = -errno;
-		EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err, "defrag: indexsort: fsync after binlog apply: index: %d, size: %llu: %s",
+		EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err, "defrag: indexsort: eblob_fdatasync after binlog apply: index: %d, size: %llu: %s",
 			    bctl->index, (unsigned long long)index_size, file);
 		goto err_unlock_hash;
 	}

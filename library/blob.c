@@ -1138,7 +1138,7 @@ static int eblob_commit_disk(struct eblob_backend *b, struct eblob_key *key,
 	}
 
 	if (!b->cfg.sync)
-		fsync(wc->index_fd);
+		eblob_fdatasync(wc->index_fd);
 
 	eblob_dump_wc(b, key, wc, "eblob_commit_disk", err);
 
@@ -1928,7 +1928,7 @@ static int eblob_write_commit_footer(struct eblob_backend *b, struct eblob_key *
 
 err_out_sync:
 	if (!b->cfg.sync)
-		fsync(wc->data_fd);
+		eblob_fdatasync(wc->data_fd);
 	err = 0;
 
 err_out_exit:
@@ -2660,8 +2660,8 @@ int eblob_sync(struct eblob_backend *b)
 	pthread_mutex_lock(&b->sync_lock);
 
 	list_for_each_entry(ctl, &b->bases, base_entry) {
-		fsync(ctl->data_fd);
-		fsync(eblob_get_index_fd(ctl));
+		eblob_fdatasync(ctl->data_fd);
+		eblob_fdatasync(eblob_get_index_fd(ctl));
 	}
 
 	pthread_mutex_unlock(&b->sync_lock);
