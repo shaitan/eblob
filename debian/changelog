@@ -1,3 +1,9 @@
+eblob (0.22.23~fdatasync) unstable; urgency=low
+
+  * replaced calling fsync by fdatasync
+
+ -- Kirill Smorodinnikov <shaitan@s36h.xxx.yandex.net>  Thu, 04 Jun 2015 13:53:52 +0400
+
 eblob (0.22.22) unstable; urgency=low
 
   * core: fixed failing write_prepare with -7 if it tries to overwrite record without footer by record with footer
