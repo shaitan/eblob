@@ -733,8 +733,8 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 		goto err_out_free_index;
 	}
 
-	if ((err = eblob_fdatasync(fd)) == -1) {
-		err = -errno;
+	err = eblob_fdatasync(fd);
+	if (err) {
 		EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err, "defrag: indexsort: eblob_fdatasync: index: %d, size: %llu: %s",
 			bctl->index, (unsigned long long)index_size, file);
 		goto err_out_free_index;

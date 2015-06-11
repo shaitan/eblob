@@ -1042,8 +1042,8 @@ static int datasort_swap_memory(struct datasort_cfg *dcfg)
 			goto err_free_base;
 		}
 
-		if ((err = eblob_fdatasync(index.fd)) == -1) {
-			err = -errno;
+		err = eblob_fdatasync(index.fd);
+		if (err) {
 			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err,
 					"defrag: eblob_fdatasync: fd: %d, size: %" PRIu64, index.fd, index.size);
 			goto err_free_base;
