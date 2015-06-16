@@ -27,6 +27,7 @@
 
 #include "blob.h"
 #include "crypto/sha512.h"
+#include "footer.h"
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -333,97 +334,6 @@ int eblob_hash(struct eblob_backend *b, void *dst,
 	return 0;
 }
 
-/**
- * eblob_file_hash() - generate file's hash. For now it's simple sha512.
- */
-static int eblob_file_hash(struct eblob_backend *b __attribute_unused__, void *dst,
-        unsigned int dsize __attribute_unused__, int fd, off_t offset, uint64_t size)
-{
-	FORMATTED(HANDY_TIMER_SCOPE, ("eblob.%u.file_hash", b->cfg.stat_id));
-	int err = sha512_file(fd, offset, size, dst);
-	return err;
-}
-
-/**
- * eblob_csum() - Computes checksum of data pointed by @wc and stores
- * it in @dst.
- * NB! Expensive routine
- *
- * TODO: Can be merged with eblob_csum_ok()
- */
-static int eblob_csum(struct eblob_backend *b, void *dst, unsigned int dsize,
-		struct eblob_write_control *wc)
-{
-	FORMATTED(HANDY_TIMER_SCOPE, ("eblob.%u.csum", b->cfg.stat_id));
-	off_t off = wc->ctl_data_offset + sizeof(struct eblob_disk_control);
-	int err = eblob_file_hash(b, dst, dsize, wc->data_fd, off, wc->total_data_size);
-	return err;
-}
-
-static int eblob_chunked_csum(struct eblob_backend *b, struct eblob_key *key, struct eblob_write_control *wc,
-	                          const uint64_t offset, const uint64_t size,
-	                          struct eblob_disk_footer **footers, uint64_t *footers_offset, uint64_t *footers_size) {
-	int err = 0;
-	uint64_t chunk;
-	uint64_t first_chunk = offset / EBLOB_CSUM_CHUNK_SIZE;
-	uint64_t last_chunk = (offset + size - 1) / EBLOB_CSUM_CHUNK_SIZE + 1;
-	static const size_t f_size = sizeof(struct eblob_disk_footer),
-	                    hdr_size = sizeof(struct eblob_disk_control);
-	*footers_offset = wc->ctl_data_offset + hdr_size + wc->data_capacity + first_chunk * f_size;
-	*footers_size = f_size * (last_chunk - first_chunk);
-
-	*footers = (struct eblob_disk_footer *)malloc(*footers_size);
-	if (!*footers) {
-		err = -ENOMEM;
-		goto err_out_exit;
-	}
-	memset(*footers, 0, *footers_size);
-
-	for (chunk = first_chunk; chunk < last_chunk; ++chunk) {
-		struct eblob_disk_footer *curr_footer = *footers + (chunk - first_chunk);
-		const uint64_t data_offset = wc->ctl_data_offset + hdr_size + chunk * EBLOB_CSUM_CHUNK_SIZE;
-		const uint64_t offset_max = wc->ctl_data_offset + hdr_size + wc->data_capacity;
-		uint64_t data_size = EBLOB_CSUM_CHUNK_SIZE;
-		if (data_offset + data_size > offset_max) {
-			data_size = offset_max - data_offset;
-		}
-		err = eblob_file_hash(b, curr_footer->csum, sizeof(curr_footer->csum), wc->data_fd, data_offset, data_size);
-		eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "blob: %s: calc csum: data_offset: %" PRIu64 ", data_size: %" PRIu64 ", err: %d\n",
-			      eblob_dump_id(key->id), data_offset, data_size, err);
-		if (err)
-			goto err_out_exit;
-	}
-
-	return 0;
-
-err_out_exit:
-	free(*footers);
-	*footers = NULL;
-	return err;
-}
-
-static int eblob_update_footer(struct eblob_backend *b, struct eblob_key *key, struct eblob_write_control *wc,
-	                         const struct eblob_iovec *iov) {
-	int err = 0;
-	struct eblob_disk_footer *footers = NULL;
-	uint64_t footers_offset = 0, footers_size = 0;
-
-	err = eblob_chunked_csum(b, key, wc, iov->offset, iov->size, &footers, &footers_offset, &footers_size);
-	if (err)
-		goto err_out_exit;
-
-	err = __eblob_write_ll(wc->data_fd, footers, footers_size, footers_offset);
-	eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "blob: %s: updated footers: footers_offset: %" PRIu64 ", footers_size: %" PRIu64 ", err: %d\n",
-		      eblob_dump_id(key->id), footers_offset, footers_size, err);
-	if (err != 0)
-		goto err_out_exit;
-
-err_out_exit:
-	if (footers)
-		free(footers);
-	return err;
-}
-
 /*!
  * Writes all \a iov wrt record position in base
  */
@@ -476,15 +386,6 @@ static int eblob_writev_raw(struct eblob_key *key, struct eblob_write_control *w
 		err = __eblob_write_ll(wc->bctl->data_fd, tmp->base, tmp->size, offset);
 		if (err != 0)
 			goto err_exit;
-	}
-
-	if (!(wc->bctl->back->cfg.blob_flags & EBLOB_NO_FOOTER) &&
-		!(wc->flags & BLOB_DISK_CTL_NOCSUM)) {
-		for (tmp = iov; tmp < iov + iovcnt; ++tmp) {
-			err = eblob_update_footer(wc->bctl->back, key, wc, tmp);
-			if (err != 0)
-				goto err_exit;
-		}
 	}
 
 err_exit:
@@ -1213,7 +1114,6 @@ static void eblob_wc_to_dc(const struct eblob_key *key, const struct eblob_write
 	dc->data_size = wc->total_data_size;
 	dc->disk_size = wc->total_size;
 	dc->position = wc->ctl_data_offset;
-	dc->data_capacity = wc->data_capacity;
 
 	eblob_convert_disk_control(dc);
 }
@@ -1307,10 +1207,6 @@ again:
 	return 0;
 }
 
-static inline uint64_t eblob_calculate_footer_size(uint64_t data_size) {
-	return ((data_size - 1) / EBLOB_CSUM_CHUNK_SIZE + 1) *sizeof(struct eblob_disk_footer);
-}
-
 /**
  * eblob_calculate_size() - calculate size of data with respect to
  * header/footer and alignment
@@ -1319,18 +1215,13 @@ static inline uint64_t eblob_calculate_size(struct eblob_backend *b, struct eblo
 {
 	static const size_t hdr_size = sizeof(struct eblob_disk_control);
 	const uint64_t data_size = size + offset;
-	uint64_t footer_size = 0;
-
-	if (!(b->cfg.blob_flags & EBLOB_NO_FOOTER) && data_size > 0) {
-		footer_size = eblob_calculate_footer_size(data_size);
-	}
-
+	const uint64_t footer_size = eblob_calculate_footer_size(b, data_size);
 	const uint64_t total_size = hdr_size + data_size + footer_size;
 
 	eblob_log(b->cfg.log, EBLOB_LOG_DEBUG,
-		"blob: %s: eblob_calculate_size: offset: %" PRIu64 ", size: %" PRIu64
-		", hdr_size: %lu, data_size: %" PRIu64 ", footer_size: %" PRIu64 ", total_size: %" PRIu64 "\n",
-		eblob_dump_id(key->id), offset, size, hdr_size, data_size, footer_size, total_size);
+	          "blob: %s: eblob_calculate_size: offset: %" PRIu64 ", size: %" PRIu64
+	          ", hdr_size: %lu, data_size: %" PRIu64 ", footer_size: %" PRIu64 ", total_size: %" PRIu64 "\n",
+	          eblob_dump_id(key->id), offset, size, hdr_size, data_size, footer_size, total_size);
 
 	return total_size;
 }
@@ -1584,7 +1475,6 @@ static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct ebl
 
 	wc->flags = dc.flags;
 	wc->total_size = dc.disk_size;
-	wc->data_capacity = dc.data_capacity;
 	if (dc.data_size < wc->offset + wc->size)
 		wc->total_data_size = wc->offset + wc->size;
 	else
@@ -1727,14 +1617,10 @@ static int eblob_write_prepare_disk_ll(struct eblob_backend *b, struct eblob_key
 
 	wc->bctl = ctl;
 
-	if (wc->total_data_size < prepare_disk_size) {
-		wc->data_capacity = prepare_disk_size;
+	if (wc->total_data_size < prepare_disk_size)
 		wc->total_size = eblob_calculate_size(b, key, 0, prepare_disk_size);
-	}
-	else {
-		wc->data_capacity = wc->total_data_size;
+	else
 		wc->total_size = eblob_calculate_size(b, key, 0, wc->total_data_size);
-	}
 
 	/*
 	 * if we are doing prepare, and there is some old data - reserve 2
@@ -1970,6 +1856,8 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key,
 		wc.flags = flags;
 		if (b->cfg.blob_flags & EBLOB_NO_FOOTER)
 			wc.flags |= BLOB_DISK_CTL_NOCSUM;
+		else
+			wc.flags |= BLOB_DISK_CTL_CHUNKED_CSUMS;
 		wc.flags |= BLOB_DISK_CTL_UNCOMMITTED;
 		err = eblob_write_prepare_disk(b, key, &wc, size, EBLOB_COPY_RECORD, 0, err == -ENOENT ? NULL : &old, defrag_generation);
 		if (err)
@@ -1994,6 +1882,12 @@ static int eblob_write_commit_nolock(struct eblob_backend *b, struct eblob_key *
 	FORMATTED(HANDY_TIMER_SCOPE, ("eblob.%u.disk.write.commit", b->cfg.stat_id));
 
 	int err;
+
+	err = eblob_commit_footer(b, key, wc);
+	if (err) {
+		eblob_dump_wc(b, key, wc, "eblob_write_commit_footer: ERROR", err);
+		goto err_out_exit;
+	}
 
 	err = eblob_commit_disk(b, key, wc, 0);
 	if (err)
@@ -2071,6 +1965,8 @@ int eblob_write_commit(struct eblob_backend *b, struct eblob_key *key,
 
 	if (b->cfg.blob_flags & EBLOB_NO_FOOTER)
 		wc.flags |= BLOB_DISK_CTL_NOCSUM;
+	else
+		wc.flags |= BLOB_DISK_CTL_CHUNKED_CSUMS;
 
 	err = eblob_write_commit_nolock(b, key, &wc);
 	if (err)
@@ -2222,6 +2118,8 @@ int eblob_plain_writev(struct eblob_backend *b, struct eblob_key *key,
 	wc.flags = flags;
 	if (b->cfg.blob_flags & EBLOB_NO_FOOTER)
 		wc.flags |= BLOB_DISK_CTL_NOCSUM;
+	else
+		wc.flags |= BLOB_DISK_CTL_CHUNKED_CSUMS;
 	err = eblob_writev_raw(key, &wc, iov, iovcnt);
 	if (err)
 		goto err_out_unlock;
@@ -2337,6 +2235,8 @@ int eblob_writev_return(struct eblob_backend *b, struct eblob_key *key,
 	wc->flags = flags;
 	if (b->cfg.blob_flags & EBLOB_NO_FOOTER)
 		wc->flags |= BLOB_DISK_CTL_NOCSUM;
+	else
+		wc->flags |= BLOB_DISK_CTL_CHUNKED_CSUMS;
 	wc->index = -1;
 
 	err = eblob_try_overwritev(b, key, iov, iovcnt, wc, &old, &defrag_generation);
@@ -2379,6 +2279,8 @@ int eblob_writev_return(struct eblob_backend *b, struct eblob_key *key,
 		wc->flags = flags;
 		if (b->cfg.blob_flags & EBLOB_NO_FOOTER)
 			wc->flags |= BLOB_DISK_CTL_NOCSUM;
+		else
+			wc->flags |= BLOB_DISK_CTL_CHUNKED_CSUMS;
 	}
 
 	err = eblob_write_prepare_disk(b, key, wc, 0, copy, copy_offset, err == -ENOENT ? NULL : &old, defrag_generation);
@@ -2441,70 +2343,6 @@ err_out_exit:
 }
 
 /**
- * eblob_csum_ok() - verifies checksum of entry pointed by @wc.
- */
-static int eblob_csum_ok(struct eblob_backend *b, struct eblob_key *key, struct eblob_write_control *wc)
-{
-	FORMATTED(HANDY_TIMER_SCOPE, ("eblob.%u.csum.ok", b->cfg.stat_id));
-	int err = 0;
-
-	struct eblob_disk_footer *calc_footers = NULL;
-	struct eblob_disk_footer *check_footers = NULL;
-	uint64_t footers_offset = 0, footers_size = 0;
-	off_t off;
-	static const size_t hdr_size = sizeof(struct eblob_disk_control);
-	const size_t total_footers_size = eblob_calculate_footer_size(wc->data_capacity);
-
-	/* if record is uncommitted, its checksum hasn't been calculated, so
-	 * this check should be skipped
-	 */
-	if (wc->flags & BLOB_DISK_CTL_UNCOMMITTED)
-		return 0;
-
-	if (wc->total_size < sizeof(struct eblob_disk_footer)
-			|| wc->total_size < sizeof(struct eblob_disk_control)
-			|| wc->total_data_size > wc->total_size) {
-		err = -EINVAL;
-		goto err_out_exit;
-	}
-
-	if (wc->flags & BLOB_DISK_CTL_NOCSUM)
-		goto err_out_exit;
-
-	if (wc->total_size < hdr_size + total_footers_size + wc->data_capacity ||
-		wc->total_size < wc->total_data_size) {
-		err = -EINVAL;
-		goto err_out_exit;
-	}
-
-	off = 0;
-	err = eblob_chunked_csum(b, key, wc, off, wc->total_data_size, &calc_footers, &footers_offset, &footers_size);
-	if (err)
-		goto err_out_exit;
-
-	check_footers = (struct eblob_disk_footer *)malloc(footers_size);
-	if (!check_footers) {
-		err = -ENOMEM;
-		goto err_free_calc;
-	}
-
-	err = __eblob_read_ll(wc->data_fd, check_footers, footers_size, footers_offset);
-	if (err)
-		goto err_free_check;
-
-	if (memcmp(calc_footers, check_footers, footers_size)) {
-		err = -EILSEQ;
-	}
-
-err_free_check:
-	free(check_footers);
-err_free_calc:
-	free(calc_footers);
-err_out_exit:
-	return err;
-}
-
-/**
  * _eblob_read_ll() - returns @fd, @offset and @size of data for given key.
  * Caller should the read data manually.
  */
@@ -2538,8 +2376,8 @@ static int _eblob_read_ll(struct eblob_backend *b, struct eblob_key *key,
 
 	gettimeofday(&start, NULL);
 
-	if ((csum != EBLOB_READ_NOCSUM) && !(b->cfg.blob_flags & EBLOB_NO_FOOTER)) {
-		err = eblob_csum_ok(b, key, wc);
+	if (csum != EBLOB_READ_NOCSUM) {
+		err = eblob_check_csum(b, key, wc);
 		if (err) {
 			eblob_dump_wc(b, key, wc, "_eblob_read_ll: checksum verification failed", err);
 			goto err_out_exit;

@@ -201,6 +201,11 @@ enum eblob_read_flavour {
  */
 #define BLOB_DISK_CTL_UNCOMMITTED	(1<<7)
 
+/*
+ * This flags is set for records that is checksummed by chunks
+ */
+#define BLOB_DISK_CTL_CHUNKED_CSUMS	(1<<8)
+
 struct eblob_disk_control {
 	/* key data */
 	struct eblob_key	key;
@@ -221,11 +226,6 @@ struct eblob_disk_control {
 
 	/* This structure position in the blob file */
 	uint64_t		position;
-
-	/* size of preallocated spcae that could be used for data
-	 * excluding header/footer blocks
-	 */
-	 uint64_t		data_capacity;
 } __attribute__ ((packed));
 
 static inline void eblob_convert_disk_control(struct eblob_disk_control *ctl)
@@ -234,7 +234,6 @@ static inline void eblob_convert_disk_control(struct eblob_disk_control *ctl)
 	ctl->data_size = eblob_bswap64(ctl->data_size);
 	ctl->disk_size = eblob_bswap64(ctl->disk_size);
 	ctl->position = eblob_bswap64(ctl->position);
-	ctl->data_capacity = eblob_bswap64(ctl->data_capacity);
 }
 
 /* when set, reserve 10% of free space and return -ENOSPC when there is not enough free space to reserve */
@@ -511,6 +510,8 @@ int eblob_read_nocsum(struct eblob_backend *b, struct eblob_key *key,
 int eblob_read_return(struct eblob_backend *b, struct eblob_key *key,
 		enum eblob_read_flavour csum, struct eblob_write_control *wc);
 
+int eblob_check_csum(struct eblob_backend *b, struct eblob_key *key, struct eblob_write_control *wc);
+
 /*
  * Allocates buffer and reads data there.
  * @size will contain number of bytes read
@@ -582,7 +583,7 @@ struct eblob_write_control {
 	uint64_t			data_offset;
 
 	uint64_t			ctl_data_offset, ctl_index_offset;
-	uint64_t			total_size, total_data_size, data_capacity;
+	uint64_t			total_size, total_data_size;
 
 	int				on_disk;
 	/*
@@ -745,7 +746,8 @@ static inline const char *eblob_dump_dctl_flags(uint64_t flags) {
 		{ BLOB_DISK_CTL_APPEND,		"append"},
 		{ BLOB_DISK_CTL_OVERWRITE,	"overwrite"},
 		{ BLOB_DISK_CTL_EXTHDR,		"exthdr"},
-		{ BLOB_DISK_CTL_UNCOMMITTED,	"uncommitted"}
+		{ BLOB_DISK_CTL_UNCOMMITTED,	"uncommitted"},
+		{ BLOB_DISK_CTL_CHUNKED_CSUMS,	"chunked_csums"}
 	};
 
 	eblob_dump_flags_raw(buffer, sizeof(buffer), flags, infos, sizeof(infos) / sizeof(infos[0]));
