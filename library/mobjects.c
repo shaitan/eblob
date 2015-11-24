@@ -682,10 +682,20 @@ int eblob_cache_lookup(struct eblob_backend *b, struct eblob_key *key,
 	pthread_rwlock_rdlock(&b->hash.root_lock);
 	if (b->cfg.blob_flags & EBLOB_L2HASH) {
 		/* If l2hash is enabled - look in it */
-		err = eblob_l2hash_lookup(&b->l2hash, key, res);
+		err = eblob_l2hash_lookup(b, &b->l2hash, key, res);
+		if (err && err != -ENOENT) {
+			eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
+			          "blob: %s: %s: eblob_l2hash_lookup: failed: err: %d",
+			          eblob_dump_id(key->id), __func__, err);
+		}
 	} else {
 		/* Look in memory cache */
 		err = eblob_hash_lookup_nolock(&b->hash, key, res);
+		if (err && err != -ENOENT) {
+			eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
+			          "blob: %s: %s: eblob_hash_lookup_nolock: failed: err: %d",
+			          eblob_dump_id(key->id), __func__, err);
+		}
 	}
 	pthread_rwlock_unlock(&b->hash.root_lock);
 	FORMATTED(HANDY_TIMER_STOP, ("eblob.%u.cache.lookup", b->cfg.stat_id), (uint64_t)key);
@@ -693,6 +703,12 @@ int eblob_cache_lookup(struct eblob_backend *b, struct eblob_key *key,
 	if (err == -ENOENT) {
 		/* Look on disk */
 		err = eblob_disk_index_lookup(b, key, res);
+		if (err && err != -ENOENT) {
+			eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
+			          "blob: %s: %s: eblob_disk_index_lookup: failed: err: %d",
+			          eblob_dump_id(key->id), __func__, err);
+		}
+
 		if (err)
 			goto err_out_exit;
 		disk = 1;

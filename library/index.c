@@ -648,7 +648,7 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 	if (b == NULL || bctl == NULL)
 		return -EINVAL;
 
-	EBLOB_WARNX(b->cfg.log, EBLOB_LOG_NOTICE, "defrag: indexsort: sorting: %s, index: %d",
+	EBLOB_WARNX(b->cfg.log, EBLOB_LOG_ERROR, "defrag: indexsort: sorting: %s, index: %d",
 			bctl->name, bctl->index);
 
 	/* Should be enough to store /path/to/data.N.index.sorted */
@@ -818,7 +818,7 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 	free(sorted_index);
 	free(file);
 	free(dst_file);
-	eblob_log(b->cfg.log, EBLOB_LOG_INFO, "defrag: indexsort: success\n");
+	eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "defrag: indexsort: success\n");
 	return 0;
 
 err_unlock_hash:

@@ -1324,7 +1324,7 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 			return -EINVAL;
 
 	for (n = 0; n < dcfg->bctl_cnt; ++n)
-		EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE, "defrag: sorting: %s", dcfg->bctl[n]->name);
+		EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR, "defrag: sorting: %s", dcfg->bctl[n]->name);
 
 	/* Setup defaults */
 	if (dcfg->chunk_size == 0)
@@ -1480,7 +1480,7 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 		pthread_mutex_unlock(&dcfg->bctl[n]->lock);
 	pthread_mutex_unlock(&dcfg->b->lock);
 
-	eblob_log(dcfg->log, EBLOB_LOG_INFO, "blob: defrag: datasort: success\n");
+	eblob_log(dcfg->log, EBLOB_LOG_ERROR, "blob: defrag: datasort: success\n");
 	return 0;
 
 err_unlock_bctl:
