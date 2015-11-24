@@ -1,3 +1,9 @@
+eblob (0.23.10~debug) unstable; urgency=low
+
+  * add logs for debugging -9 errors
+
+ -- Kirill Smorodinnikov <shaitkir@gmail.com>  Tue, 24 Nov 2015 15:28:55 +0400
+
 eblob (0.23.10) unstable; urgency=low
 
   * fixed failing eblob_remove with -9 error
