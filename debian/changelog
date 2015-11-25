@@ -1,3 +1,9 @@
+eblob (0.23.10~debug-1) unstable; urgency=low
+
+  * Revert "Added check to `eblob_fill_write_control_from_ram`"
+
+ -- Kirill Smorodinnikov <shaitkir@gmail.com>  Wed, 25 Nov 2015 17:43:04 +0400
+
 eblob (0.23.10~debug) unstable; urgency=low
 
   * add logs for debugging -9 errors
