@@ -132,12 +132,12 @@ static int __eblob_l2hash_index_hdr(struct eblob_backend *b,
 	if (err != sizeof(struct eblob_disk_control)) {
 		err = (err == -1) ? -errno : -EINTR; /* TODO: handle signal case gracefully */
 		if (b) {
-			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: rctl: data_offset: %" PRIu64 ", index_offset: %" PRIu64
-			          "bctl: %p: index: %d, name: %s, "
+			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: rctl: data_offset: %" PRIu64
+			          ", index_offset: %" PRIu64 " bctl: %p: index: %d, name: %s, "
 			          "index_ctl: (fd: %d, sorted: %d), data_ctl: (fd: %d, sorted: %d): "
 			          "failed: err: %d",
-			          __func__, rctl->data_offset, rctl->index_offset,
-			          rctl->bctl, rctl->bctl->index, rctl->bctl->name,
+			          __func__, rctl->data_offset,
+			          rctl->index_offset, rctl->bctl, rctl->bctl->index, rctl->bctl->name,
 			          rctl->bctl->index_ctl.fd, rctl->bctl->index_ctl.sorted,
 			          rctl->bctl->data_ctl.fd, rctl->bctl->data_ctl.sorted,
 			          err);
