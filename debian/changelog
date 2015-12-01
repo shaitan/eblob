@@ -1,3 +1,9 @@
+eblob (0.23.10~debug-3) unstable; urgency=low
+
+  * yet another logs on datasort
+
+ -- Kirill Smorodinnikov <shaitkir@gmail.com>  Tue, 01 Dec 2015 17:48:32 +0400
+
 eblob (0.23.10~debug-2) unstable; urgency=low
 
   * more logs for everyone
