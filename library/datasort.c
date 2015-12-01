@@ -1350,6 +1350,7 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 
 	/* Capture all removed entries starting from that moment */
 	pthread_mutex_lock(&dcfg->b->lock);
+	eblob_log(dcfg->log, EBLOB_LOG_ERROR, "blob: defrag: binlog start\n");
 	for (n = 0; n < dcfg->bctl_cnt; ++n) {
 		struct eblob_base_ctl * const bctl = dcfg->bctl[n];
 
@@ -1392,6 +1393,7 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 	/*
 	 * Split blob into unsorted chunks
 	 */
+	eblob_log(dcfg->log, EBLOB_LOG_ERROR, "blob: defrag: datasort_split\n");
 	err = datasort_split(dcfg);
 	if (err) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "defrag: datasort_split: %s", dcfg->dir);
@@ -1411,6 +1413,7 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 	/*
 	 * Sort each chunk
 	 */
+	eblob_log(dcfg->log, EBLOB_LOG_ERROR, "blob: defrag: datasort_sort\n");
 	err = datasort_sort(dcfg);
 	if (err) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "defrag: datasort_sort: %s", dcfg->dir);
@@ -1418,6 +1421,7 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 	}
 
 	/* Merge sorted chunks */
+	eblob_log(dcfg->log, EBLOB_LOG_ERROR, "blob: defrag: datasort_merge\n");
 	dcfg->result = datasort_merge(dcfg);
 	if (dcfg->result == NULL) {
 		err = -EIO;
@@ -1432,6 +1436,7 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 		eblob_base_wait_locked(dcfg->bctl[n]);
 
 	/* Apply binlog */
+	eblob_log(dcfg->log, EBLOB_LOG_ERROR, "blob: defrag: datasort_binlog_apply\n");
 	err = datasort_binlog_apply(dcfg);
 	if (err != 0) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "defrag: eblob_binlog_apply: FAILED");
@@ -1439,6 +1444,7 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 	}
 
 	/* Swap original bctl with sorted one */
+	eblob_log(dcfg->log, EBLOB_LOG_ERROR, "blob: defrag: datasort_swap_memory\n");
 	err = datasort_swap_memory(dcfg);
 	if (err) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err,
@@ -1447,6 +1453,7 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 	}
 
 	/* Swap files */
+	eblob_log(dcfg->log, EBLOB_LOG_ERROR, "blob: defrag: datasort_swap_disk\n");
 	err = datasort_swap_disk(dcfg);
 	if (err) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err,
@@ -1455,6 +1462,7 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 	}
 
 	/* Stop binlog */
+	eblob_log(dcfg->log, EBLOB_LOG_ERROR, "blob: defrag: eblob_binlog_stop\n");
 	for (n = 0; n < dcfg->bctl_cnt; ++n) {
 		err = eblob_binlog_stop(&dcfg->bctl[n]->binlog);
 		if (err != 0)
@@ -1466,6 +1474,7 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 	 * Preform cleanups
 	 * TODO: Move the out of the lock.
 	 */
+	eblob_log(dcfg->log, EBLOB_LOG_ERROR, "blob: defrag: datasort_cleanup\n");
 	datasort_cleanup(dcfg);
 
 	/* Mark base as sorted */
