@@ -1753,11 +1753,12 @@ static int eblob_write_prepare_disk_ll(struct eblob_backend *b, struct eblob_key
 		if (memcmp(&old_dc.key, key, sizeof(struct eblob_key)) != 0) {
 			EBLOB_WARNX(b->cfg.log, EBLOB_LOG_ERROR,
 				"keys mismatch: in-memory: %s, on-disk: %s: "
-				"wc->bctl: index: %d, name: %s, data_ctl: (fd: %d, sorted: %d), index_ctl: (fd: %d, sorted: %d), data_offset: %" PRIu64
-				"old->bctl: index: %d, name: %s, data_ctl: (fd: %d, sorted: %d), index_ctl: (fd: %d, sorted: %d), data_offset: %" PRIu64,
+				"wc->bctl: %p, index: %d, name: %s, data_ctl: (fd: %d, sorted: %d), index_ctl: (fd: %d, sorted: %d), data_offset: %" PRIu64
+				"old->bctl: %p, index: %d, name: %s, data_ctl: (fd: %d, sorted: %d), index_ctl: (fd: %d, sorted: %d), data_offset: %" PRIu64,
 				eblob_dump_id_len(key->id, EBLOB_ID_SIZE), eblob_dump_id_len(old_dc.key.id, EBLOB_ID_SIZE),
-				wc->bctl->index, wc->bctl->name, wc->bctl->data_ctl.fd, wc->bctl->data_ctl.sorted, wc->bctl->index_ctl.fd, wc->bctl->index_ctl.sorted, wc->ctl_data_offset,
-				old->bctl->index, old->bctl->name, old->bctl->data_ctl.fd, old->bctl->data_ctl.sorted, old->bctl->index_ctl.fd, old->bctl->index_ctl.sorted, old->data_offset);
+				wc->bctl, wc->bctl->index, wc->bctl->name, wc->bctl->data_ctl.fd, wc->bctl->data_ctl.sorted, wc->bctl->index_ctl.fd, wc->bctl->index_ctl.sorted, wc->ctl_data_offset,
+				old->bctl, old->bctl->index, old->bctl->name, old->bctl->data_ctl.fd, old->bctl->data_ctl.sorted, old->bctl->index_ctl.fd, old->bctl->index_ctl.sorted, old->data_offset);
+			err = -EINVAL;
 			goto err_out_rollback;
 		}
 

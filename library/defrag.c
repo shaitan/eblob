@@ -179,7 +179,7 @@ int eblob_defrag(struct eblob_backend *b)
 			EBLOB_WARNX(b->cfg.log, EBLOB_LOG_INFO, "defrag: empty blob - removing.");
 
 			pthread_mutex_lock(&b->lock);
-			/* Remove it from list, but do not poisson next and prev */
+			/* Remove it from list, but do not poison next and prev */
 			__list_del(bctl->base_entry.prev, bctl->base_entry.next);
 
 			/* Remove base files */

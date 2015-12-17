@@ -1323,8 +1323,13 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 		if (dcfg->bctl[n] == NULL)
 			return -EINVAL;
 
-	for (n = 0; n < dcfg->bctl_cnt; ++n)
-		EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR, "defrag: sorting: %s", dcfg->bctl[n]->name);
+	for (n = 0; n < dcfg->bctl_cnt; ++n) {
+		EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR,
+		            "defrag: sorting: bctl: %p, index: %d, name: %s, data_ctl: (fd: %d, sorted: %d), index_ctl: (fd: %d, sorted: %d)",
+		            dcfg->bctl[n], dcfg->bctl[n]->index, dcfg->bctl[n]->name,
+		            dcfg->bctl[n]->data_ctl.fd, dcfg->bctl[n]->data_ctl.sorted,
+		            dcfg->bctl[n]->index_ctl.fd, dcfg->bctl[n]->index_ctl.sorted);
+	}
 
 	/* Setup defaults */
 	if (dcfg->chunk_size == 0)
