@@ -1758,6 +1758,7 @@ static int eblob_write_prepare_disk_ll(struct eblob_backend *b, struct eblob_key
 				eblob_dump_id_len(key->id, EBLOB_ID_SIZE), eblob_dump_id_len(old_dc.key.id, EBLOB_ID_SIZE),
 				wc->bctl, wc->bctl->index, wc->bctl->name, wc->bctl->data_ctl.fd, wc->bctl->data_ctl.sorted, wc->bctl->index_ctl.fd, wc->bctl->index_ctl.sorted, wc->ctl_data_offset,
 				old->bctl, old->bctl->index, old->bctl->name, old->bctl->data_ctl.fd, old->bctl->data_ctl.sorted, old->bctl->index_ctl.fd, old->bctl->index_ctl.sorted, old->data_offset);
+			abort();
 			err = -EINVAL;
 			goto err_out_rollback;
 		}
