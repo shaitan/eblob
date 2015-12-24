@@ -1,3 +1,9 @@
+eblob (0.23.11-pagecache) unstable; urgency=medium
+
+  * Try to handle potential Linux pagecache bug
+
+ -- Anton Kortunov <toshik@yandex-team.ru>  Thu, 24 Dec 2015 20:34:00 +0300
+
 eblob (0.23.11) unstable; urgency=low
 
   * iterate: verify checksum for entries while iterating a blob

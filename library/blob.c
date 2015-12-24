@@ -1050,7 +1050,7 @@ static int eblob_mark_entry_removed(struct eblob_backend *b,
 		struct eblob_key *key, struct eblob_ram_control *old)
 {
 	int err;
-	struct eblob_disk_control old_dc;
+	struct eblob_disk_control old_dc, blob_dc;
 	int64_t record_size = 0;
 
 	/* Add entry to list of removed entries */
@@ -1092,6 +1092,22 @@ static int eblob_mark_entry_removed(struct eblob_backend *b,
 		EBLOB_WARNX(b->cfg.log, EBLOB_LOG_ERROR, "keys mismatch: in-memory: %s, on-disk: %s",
 				eblob_dump_id_len(key->id, EBLOB_ID_SIZE),
 				eblob_dump_id_len(old_dc.key.id, EBLOB_ID_SIZE));
+		err = -EINVAL;
+		goto err;
+	}
+
+    /* Sanity: Check that blob on-disk header is not corrupted */
+	err = __eblob_read_ll(old->bctl->data_ctl.fd, &blob_dc, sizeof(blob_dc), old->data_offset);
+	if (err) {
+		EBLOB_WARNX(b->cfg.log, EBLOB_LOG_ERROR, "%s: __eblob_read_ll: FAILED: data, fd: %d, err: %d",
+				eblob_dump_id(key->id), old->bctl->index_ctl.fd, err);
+		goto err;
+	}
+
+	if (memcmp(&blob_dc.key, key, sizeof(key)) != 0) {
+		EBLOB_WARNX(b->cfg.log, EBLOB_LOG_ERROR, "keys mismatch: in-memory: %s, blob on-disk: %s",
+				eblob_dump_id_len(key->id, EBLOB_ID_SIZE),
+				eblob_dump_id_len(blob_dc.key.id, EBLOB_ID_SIZE));
 		err = -EINVAL;
 		goto err;
 	}
@@ -1213,6 +1229,20 @@ static int eblob_commit_disk(struct eblob_backend *b, struct eblob_key *key,
 	if (err) {
 		eblob_dump_wc(b, key, wc, "eblob_commit_disk: ERROR-write-index", err);
 		goto err_out_exit;
+	}
+
+	/***************************************************************************
+	 *                              ACHTUNG                                    *
+     * Check for potential linux pagecache bug                                 *
+     * Try to read few bites before header to fill page cache.                 *
+     ***************************************************************************/
+	uint64_t tmp;
+	if (wc->ctl_data_offset > 8) {
+		err = __eblob_read_ll(wc->data_fd, &tmp, sizeof(tmp), wc->ctl_data_offset - 8);
+		if (err) {
+			eblob_dump_wc(b, key, wc, "eblob_commit_disk: ERROR sanity check failed", err);
+			goto err_out_exit;
+		}
 	}
 
 	err = __eblob_write_ll(wc->data_fd, &dc, sizeof(dc), wc->ctl_data_offset);
