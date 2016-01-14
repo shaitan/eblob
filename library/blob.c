@@ -1988,8 +1988,15 @@ err_out_exit:
 int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key,
 		uint64_t size, uint64_t flags)
 {
-	FORMATTED(HANDY_TIMER_SCOPE, ("eblob.%u.disk.write.prepare", b->cfg.stat_id));
 	struct eblob_write_control wc = { .offset = 0 };
+	return eblob_write_prepare_return(b, key, size, flags, &wc);
+}
+
+int eblob_write_prepare_return(struct eblob_backend *b, struct eblob_key *key,
+		uint64_t size, uint64_t flags,
+		struct eblob_write_control *wc)
+{
+	FORMATTED(HANDY_TIMER_SCOPE, ("eblob.%u.disk.write.prepare", b->cfg.stat_id));
 	struct eblob_ram_control old;
 	int err;
 	size_t defrag_generation = 0;
@@ -2011,12 +2018,12 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key,
 	pthread_mutex_lock(&b->lock);
 	defrag_generation = b->defrag_generation;
 
-	err = eblob_fill_write_control_from_ram(b, key, &wc, 1, &old);
+	err = eblob_fill_write_control_from_ram(b, key, wc, 1, &old);
 	pthread_mutex_unlock(&b->lock);
 	if (err && err != -ENOENT && err != -E2BIG)
 		goto err_out_exit;
 
-	if (err == 0 && (wc.total_size >= eblob_calculate_size(b, key, 0, size))) {
+	if (err == 0 && (wc->total_size >= eblob_calculate_size(b, key, 0, size))) {
 		uint64_t new_flags;
 
 		/*
@@ -2034,14 +2041,14 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key,
 		new_flags = eblob_validate_ctl_flags(b, flags);
 		new_flags |= BLOB_DISK_CTL_UNCOMMITTED;
 
-		if (wc.flags != new_flags) {
-			wc.flags = new_flags;
+		if (wc->flags != new_flags) {
+			wc->flags = new_flags;
 
-			err = eblob_commit_disk(b, key, &wc, 0);
+			err = eblob_commit_disk(b, key, wc, 0);
 			if (err)
 				goto err_out_cleanup_wc;
 
-			err = eblob_commit_ram(b, key, &wc);
+			err = eblob_commit_ram(b, key, wc);
 			if (err)
 				goto err_out_cleanup_wc;
 		}
@@ -2049,22 +2056,22 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key,
 		eblob_stat_inc(b->stat, EBLOB_GST_PREPARE_REUSED);
 		goto err_out_cleanup_wc;
 	} else {
-		wc.flags = eblob_validate_ctl_flags(b, flags);
-		wc.flags |= BLOB_DISK_CTL_UNCOMMITTED;
+		wc->flags = eblob_validate_ctl_flags(b, flags);
+		wc->flags |= BLOB_DISK_CTL_UNCOMMITTED;
 
-		err = eblob_write_prepare_disk(b, key, &wc, size, EBLOB_COPY_RECORD, 0, err == -ENOENT ? NULL : &old, defrag_generation);
+		err = eblob_write_prepare_disk(b, key, wc, size, EBLOB_COPY_RECORD, 0, err == -ENOENT ? NULL : &old, defrag_generation);
 		if (err)
 			goto err_out_cleanup_wc;
 
-		err = eblob_commit_ram(b, key, &wc);
+		err = eblob_commit_ram(b, key, wc);
 		if (err)
 			goto err_out_cleanup_wc;
 	}
 
 err_out_cleanup_wc:
-	eblob_write_control_cleanup(&wc);
+	eblob_write_control_cleanup(wc);
 err_out_exit:
-	eblob_dump_wc(b, key, &wc, "eblob_write_prepare: finished", err);
+	eblob_dump_wc(b, key, wc, "eblob_write_prepare: finished", err);
 	return err;
 }
 
@@ -2185,6 +2192,13 @@ int eblob_write_commit(struct eblob_backend *b, struct eblob_key *key,
 		uint64_t size, uint64_t flags)
 {
 	struct eblob_write_control wc = { .offset = 0, };
+	return eblob_write_commit_return(b, key, size, flags, &wc);
+}
+
+int eblob_write_commit_return(struct eblob_backend *b, struct eblob_key *key,
+		uint64_t size, uint64_t flags,
+		struct eblob_write_control *wc)
+{
 	int err;
 
 	/* Sanity */
@@ -2197,18 +2211,18 @@ int eblob_write_commit(struct eblob_backend *b, struct eblob_key *key,
 			"key: %s, size: %" PRIu64 ", flags: %s",
 			eblob_dump_id(key->id), size, eblob_dump_dctl_flags(flags));
 
-	err = eblob_write_commit_prepare(b, key, size, flags, &wc);
+	err = eblob_write_commit_prepare(b, key, size, flags, wc);
 	if (err != 0)
 		goto err_out_exit;
 
-	err = eblob_write_commit_ll(b, key, &wc);
+	err = eblob_write_commit_ll(b, key, wc);
 	if (err != 0)
 		goto err_out_cleanup_wc;
 
 err_out_cleanup_wc:
-	eblob_write_control_cleanup(&wc);
+	eblob_write_control_cleanup(wc);
 err_out_exit:
-	eblob_dump_wc(b, key, &wc, "eblob_write_commit: finished", err);
+	eblob_dump_wc(b, key, wc, "eblob_write_commit: finished", err);
 	return err;
 }
 
@@ -2285,13 +2299,21 @@ err_out_exit:
 int eblob_plain_write(struct eblob_backend *b, struct eblob_key *key,
 		void *data, uint64_t offset, uint64_t size, uint64_t flags)
 {
+	struct eblob_write_control wc = { .offset = 0 };
+	return eblob_plain_write_return(b, key, data, offset, size, flags, &wc);
+}
+
+int eblob_plain_write_return(struct eblob_backend *b, struct eblob_key *key,
+		void *data, uint64_t offset, uint64_t size, uint64_t flags,
+		struct eblob_write_control *wc)
+{
 	const struct eblob_iovec iov = {
 		.base = data,
 		.size = size,
 		.offset = offset,
 	};
 
-	return eblob_plain_writev(b, key, &iov, 1, flags);
+	return eblob_plain_writev_return(b, key, &iov, 1, flags, wc);
 }
 
 static int eblob_plain_writev_prepare(struct eblob_backend *b, struct eblob_key *key,
@@ -2379,6 +2401,13 @@ int eblob_plain_writev(struct eblob_backend *b, struct eblob_key *key,
 		const struct eblob_iovec *iov, uint16_t iovcnt, uint64_t flags)
 {
 	struct eblob_write_control wc = { .offset = 0 };
+	return eblob_plain_writev_return(b, key, iov, iovcnt, flags, &wc);
+}
+
+int eblob_plain_writev_return(struct eblob_backend *b, struct eblob_key *key,
+		const struct eblob_iovec *iov, uint16_t iovcnt, uint64_t flags,
+		struct eblob_write_control *wc)
+{
 	ssize_t err;
 	int prepared = 0;
 
@@ -2392,29 +2421,29 @@ int eblob_plain_writev(struct eblob_backend *b, struct eblob_key *key,
 			"key: %s, iovcnt: %" PRIu16 ", flags: %s",
 			eblob_dump_id(key->id), iovcnt, eblob_dump_dctl_flags(flags));
 
-	err = eblob_plain_writev_prepare(b, key, iov, iovcnt, flags, &wc, &prepared);
+	err = eblob_plain_writev_prepare(b, key, iov, iovcnt, flags, wc, &prepared);
 	if (err)
 		goto err_out_exit;
 
-	err = eblob_writev_raw(key, &wc, iov, iovcnt);
+	err = eblob_writev_raw(key, wc, iov, iovcnt);
 	if (err)
 		goto err_out_cleanup_wc;
 
 	/* Re-commit record to ram if it was copied */
 	if (prepared) {
-		err = eblob_commit_ram(b, key, &wc);
+		err = eblob_commit_ram(b, key, wc);
 		if (err != 0)
 			goto err_out_cleanup_wc;
 	}
 
 err_out_cleanup_wc:
-	eblob_write_control_cleanup(&wc);
+	eblob_write_control_cleanup(wc);
 err_out_exit:
 	eblob_log(b->cfg.log, err ? EBLOB_LOG_ERROR : EBLOB_LOG_NOTICE,
 			"blob: %s: %s: eblob_writev_raw: fd: %d: "
 			"size: %" PRIu64 ", offset: %" PRIu64 ": %zd.\n",
-			eblob_dump_id(key->id), __func__, wc.data_fd, wc.size,
-			wc.data_offset + wc.offset, err);
+			eblob_dump_id(key->id), __func__, wc->data_fd, wc->size,
+			wc->data_offset + wc->offset, err);
 	if (err) {
 		FORMATTED(HANDY_COUNTER_INCREMENT, ("eblob.%u.disk.write.plain.errors.%zd", b->cfg.stat_id, -err), 1);
 	}
