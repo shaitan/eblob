@@ -1,3 +1,9 @@
+eblob (0.23.10-yac) unstable; urgency=low
+
+  * removed sanity check 
+
+ -- Kirill Smorodinnikov <shaitkir@gmail.com>  Fri, 05 Feb 2016 02:00:30 +0400
+
 eblob (0.23.10) unstable; urgency=low
 
   * fixed failing eblob_remove with -9 error
