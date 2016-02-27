@@ -1,3 +1,9 @@
+eblob (0.23.12-1) unstable; urgency=low
+
+  * fix duplicates in iterator responses
+
+ -- Kirill Smorodinnikov <shaitkir@gmail.com>  Sat, 27 Feb 2016 22:17:56 +0400
+
 eblob (0.23.12) unstable; urgency=low
 
   * merge: fixed tool to use sorted index if unsorted is not available
