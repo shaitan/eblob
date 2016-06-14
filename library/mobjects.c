@@ -118,6 +118,8 @@ int _eblob_base_ctl_cleanup(struct eblob_base_ctl *ctl)
 	eblob_stat_set(ctl->stat, EBLOB_LST_RECORDS_TOTAL, 0);
 	eblob_stat_set(ctl->stat, EBLOB_LST_RECORDS_REMOVED, 0);
 	eblob_stat_set(ctl->stat, EBLOB_LST_REMOVED_SIZE, 0);
+	eblob_stat_set(ctl->stat, EBLOB_LST_RECORDS_UNCOMMITTED, 0);
+	eblob_stat_set(ctl->stat, EBLOB_LST_UNCOMMITTED_SIZE, 0);
 
 	return 0;
 }
