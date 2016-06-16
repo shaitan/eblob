@@ -287,7 +287,7 @@ int eblob_defrag(struct eblob_backend *b)
 					.log = b->cfg.log,
 				};
 				/* Sort all bases between @previous and @current
-				 * Do not sort one base if its deframentation is not required.
+				 * Do not sort one base if its defragmentation is not required.
 				 */
 				if (dcfg.bctl_cnt != 1 ||
 				    eblob_want_defrag(*dcfg.bctl) == EBLOB_DEFRAG_NEEDED ||

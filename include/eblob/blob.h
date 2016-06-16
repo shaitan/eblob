@@ -727,6 +727,10 @@ enum eblob_stat_local_flavour {
 	EBLOB_LST_INDEX_BLOCKS_SIZE,
 	EBLOB_LST_WANT_DEFRAG,
 	EBLOB_LST_IS_SORTED,
+	EBLOB_LST_RECORDS_UNCOMMITTED,
+	EBLOB_LST_UNCOMMITTED_SIZE,	/* total size occupied by all uncommitted records
+					 * in all blobs and index files
+					 */
 	EBLOB_LST_MAX,
 };
 

@@ -639,16 +639,29 @@ static int eblob_check_disk_one(struct eblob_iterate_local *loc)
 			eblob_dump_id(dc->key.id), dc->position,
 			dc->disk_size, dc->data_size, eblob_dump_dctl_flags(dc->flags));
 
-	if ((ctl->flags & EBLOB_ITERATE_FLAGS_INITIAL_LOAD)
-			&& (dc->flags & BLOB_DISK_CTL_REMOVE)) {
-		/* size of the place occupied by the record in the index and the blob */
-		const int64_t record_size = dc->disk_size + sizeof(struct eblob_disk_control);
+	if (ctl->flags & EBLOB_ITERATE_FLAGS_INITIAL_LOAD) {
+		uint32_t counter_stat_id = EBLOB_LST_MIN;
+		uint32_t size_stat_id = EBLOB_LST_MIN;
 
-		eblob_stat_inc(bc->stat, EBLOB_LST_RECORDS_REMOVED);
-		eblob_stat_add(bc->stat, EBLOB_LST_REMOVED_SIZE, record_size);
+		if (dc->flags & BLOB_DISK_CTL_REMOVE) {
+			counter_stat_id = EBLOB_LST_RECORDS_REMOVED;
+			size_stat_id = EBLOB_LST_REMOVED_SIZE;
+		} else if (dc->flags & BLOB_DISK_CTL_UNCOMMITTED) {
+			counter_stat_id = EBLOB_LST_RECORDS_UNCOMMITTED;
+			size_stat_id = EBLOB_LST_UNCOMMITTED_SIZE;
+		}
 
-		eblob_stat_inc(ctl->b->stat_summary, EBLOB_LST_RECORDS_REMOVED);
-		eblob_stat_add(ctl->b->stat_summary, EBLOB_LST_REMOVED_SIZE, record_size);
+		if (counter_stat_id != EBLOB_LST_MIN && size_stat_id != EBLOB_LST_MIN) {
+			/* size of the place occupied by the record in the index and the blob */
+			const int64_t record_size = dc->disk_size + sizeof(struct eblob_disk_control);
+
+
+			eblob_stat_inc(bc->stat, counter_stat_id);
+			eblob_stat_add(bc->stat, size_stat_id, record_size);
+
+			eblob_stat_inc(ctl->b->stat_summary, counter_stat_id);
+			eblob_stat_add(ctl->b->stat_summary, size_stat_id, record_size);
+		}
 	}
 
 	if ((dc->flags & BLOB_DISK_CTL_REMOVE) ||
@@ -1180,6 +1193,13 @@ static int eblob_mark_entry_removed(struct eblob_backend *b,
 				"%s: eblob_mark_index_removed: FAILED: data, fd: %d, err: %d",
 				eblob_dump_id(key->id), old->bctl->data_ctl.fd, err);
 		goto err;
+	}
+
+	if (old_dc.flags & BLOB_DISK_CTL_UNCOMMITTED) {
+		eblob_stat_dec(old->bctl->stat, EBLOB_LST_RECORDS_UNCOMMITTED);
+		eblob_stat_sub(old->bctl->stat, EBLOB_LST_UNCOMMITTED_SIZE, record_size);
+		eblob_stat_dec(b->stat_summary, EBLOB_LST_RECORDS_UNCOMMITTED);
+		eblob_stat_sub(b->stat_summary, EBLOB_LST_UNCOMMITTED_SIZE, record_size);
 	}
 
 	eblob_stat_inc(old->bctl->stat, EBLOB_LST_RECORDS_REMOVED);
@@ -1914,11 +1934,21 @@ static int eblob_write_prepare_disk_ll(struct eblob_backend *b, struct eblob_key
 
 	eblob_stat_inc(ctl->stat, EBLOB_LST_RECORDS_TOTAL);
 	eblob_stat_add(ctl->stat, EBLOB_LST_BASE_SIZE,
-			wc->total_size + sizeof(struct eblob_disk_control));
+	               wc->total_size + sizeof(struct eblob_disk_control));
 
+	eblob_stat_inc(b->stat_summary, EBLOB_LST_RECORDS_TOTAL);
 	eblob_stat_add(b->stat_summary, EBLOB_LST_BASE_SIZE,
 	               wc->total_size + sizeof(struct eblob_disk_control));
-	eblob_stat_inc(b->stat_summary, EBLOB_LST_RECORDS_TOTAL);
+
+	if (wc->flags & BLOB_DISK_CTL_UNCOMMITTED) {
+		eblob_stat_inc(ctl->stat, EBLOB_LST_RECORDS_UNCOMMITTED);
+		eblob_stat_add(ctl->stat, EBLOB_LST_UNCOMMITTED_SIZE,
+		               wc->total_size + sizeof(struct eblob_disk_control));
+
+		eblob_stat_inc(b->stat_summary, EBLOB_LST_RECORDS_UNCOMMITTED);
+		eblob_stat_add(b->stat_summary, EBLOB_LST_UNCOMMITTED_SIZE,
+		               wc->total_size + sizeof(struct eblob_disk_control));
+	}
 
 	eblob_dump_wc(b, key, wc, "eblob_write_prepare_disk_ll: complete", 0);
 

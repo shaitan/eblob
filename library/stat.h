@@ -168,6 +168,16 @@ static const struct eblob_stat_entry eblob_stat_default_local[] = {
 		{0}
 	},
 	{
+		"records_uncommitted",
+		EBLOB_LST_RECORDS_UNCOMMITTED,
+		{0}
+	},
+	{
+		"records_uncommitted_size",
+		EBLOB_LST_UNCOMMITTED_SIZE,
+		{0}
+	},
+	{
 		"MAX",
 		EBLOB_LST_MAX,
 		{0}
