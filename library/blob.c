@@ -2643,6 +2643,8 @@ int eblob_remove(struct eblob_backend *b, struct eblob_key *key)
 		", size: %" PRIu64 ".\n",
 		eblob_dump_id(key->id), ctl.data_offset, ctl.size);
 
+	FORMATTED(HANDY_COUNTER_INCREMENT, ("eblob.%u.remove.size", b->cfg.stat_id), ctl.size);
+
 err_out_bctl_release:
 	eblob_bctl_release(ctl.bctl);
 err_out_exit:
