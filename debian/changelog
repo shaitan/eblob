@@ -1,3 +1,10 @@
+eblob (0.23.12-3) unstable; urgency=medium
+
+  * Add 'eblob.%u.remove.size' handystats metric
+  * Add 'records_uncommitted' and 'uncommitted_size' counters
+
+ -- Kirill Smorodinnikov <shaitkir@gmail.com>  Wed, 22 Jun 2016 11:19:59 +0300
+
 eblob (0.23.12-2) unstable; urgency=medium
 
   * Remove temporary file after failed sorted index generation
