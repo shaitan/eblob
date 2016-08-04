@@ -1,3 +1,9 @@
+eblob (0.23.12-3-logs3) unstable; urgency=medium
+
+  * logs: add extra logs into fill_write_control_from_ram
+
+ -- Kirill Smorodinnikov <shaitkir@gmail.com>  Thu, 04 Aug 2016 13:53:20 +0300
+
 eblob (0.23.12-3-logs2) unstable; urgency=medium
 
   * logs: add lock_wait and fill_wc time to 'eblob_read: Ok' log
