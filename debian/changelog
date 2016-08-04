@@ -1,3 +1,9 @@
+eblob (0.23.12-3-logs2) unstable; urgency=medium
+
+  * logs: add lock_wait and fill_wc time to 'eblob_read: Ok' log
+
+ -- Kirill Smorodinnikov <shaitkir@gmail.com>  Thu, 04 Aug 2016 13:13:11 +0300
+
 eblob (0.23.12-3-logs) unstable; urgency=medium
 
   * logs: add lookup and total time to 'eblob_read: Ok' log
