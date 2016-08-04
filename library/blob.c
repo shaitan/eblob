@@ -1610,8 +1610,18 @@ static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct ebl
 	uint64_t orig_offset = wc->offset;
 	uint64_t calculated_size;
 	int err;
+	struct timeval start, middle, end;
+	long cache_lookup_time, hold_time, read_time, total_time;
+
+	gettimeofday(&start, NULL);
+	middle = start;
 
 	err = eblob_cache_lookup(b, key, &ctl, &wc->on_disk);
+
+	gettimeofday(&end, NULL);
+	cache_lookup_time = DIFF(middle, end);
+	middle = end;
+
 	if (err) {
 		int level = EBLOB_LOG_DEBUG;
 		if (err != -ENOENT)
@@ -1633,6 +1643,10 @@ static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct ebl
 
 	eblob_bctl_hold(wc->bctl);
 
+	gettimeofday(&end, NULL);
+	hold_time = DIFF(middle, end);
+	middle = end;
+
 	err = __eblob_read_ll(wc->index_fd, &dc, sizeof(dc), ctl.index_offset);
 	if (err) {
 		eblob_dump_wc(b, key, wc, "eblob_fill_write_control_from_ram: ERROR-pread-index", err);
@@ -1644,6 +1658,9 @@ static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct ebl
 		eblob_dump_wc(b, key, wc, "eblob_fill_write_control_from_ram: ERROR-pread-data", err);
 		goto err_out_cleanup_wc;
 	}
+
+	gettimeofday(&end, NULL);
+	read_time = DIFF(middle, end);
 
 	eblob_convert_disk_control(&dc);
 	eblob_convert_disk_control(&data_dc);
@@ -1668,6 +1685,13 @@ static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct ebl
 	}
 
 	eblob_dump_wc(b, key, wc, "eblob_fill_write_control_from_ram", err);
+
+	gettimeofday(&end, NULL);
+	total_time = DIFF(start, end);
+
+	eblob_log(b->cfg.log, EBLOB_LOG_INFO, "blob: %s: %s: cache-lookup-time: %ld usecs, hold-time: %ld usecs, "
+	                                      "read-time: %ld usecs, total-time: %ld usecs",
+	          eblob_dump_id(key->id), __func__, cache_lookup_time, hold_time, read_time, total_time);
 
 	return err;
 
@@ -2716,7 +2740,7 @@ static int _eblob_read_ll(struct eblob_backend *b, struct eblob_key *key,
 			", ctl_data_offset: %" PRIu64 ", data_offset: %" PRIu64
 			", index_fd: %d, index_offset: %" PRIu64 ", size: %" PRIu64
 			", total(disk)_size: %" PRIu64 ", on_disk: %d, want-csum: %d, csum-time: %ld usecs"
-			", lock_wait_time: %ld usecs, fill_wc_time: %ld usecs"
+			", lock-wait-time: %ld usecs, fill-wc-time: %ld usecs"
 			", lookup-time: %ld usecs, total-time: %ld usecs, err: %d\n",
 			eblob_dump_id(key->id), wc->data_fd, wc->ctl_data_offset, wc->data_offset,
 			wc->index_fd, wc->ctl_index_offset, wc->size, wc->total_size, wc->on_disk,
