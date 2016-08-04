@@ -2664,7 +2664,7 @@ static int _eblob_read_ll(struct eblob_backend *b, struct eblob_key *key,
 	FORMATTED(HANDY_TIMER_SCOPE, ("eblob.%u.disk.read", b->cfg.stat_id));
 	int err;
 	struct timeval start, end;
-	long lookup_time, csum_time;
+	long lock_wait_time, fill_wc_time, lookup_time, csum_time;
 
 	assert(b != NULL);
 	assert(key != NULL);
@@ -2677,7 +2677,12 @@ static int _eblob_read_ll(struct eblob_backend *b, struct eblob_key *key,
 	gettimeofday(&start, NULL);
 
 	pthread_mutex_lock(&b->lock);
+	gettimeofday(&end, NULL);
+	lock_wait_time = DIFF(start, end);
+
 	err = eblob_fill_write_control_from_ram(b, key, wc, 0, NULL);
+	gettimeofday(&end, NULL);
+	fill_wc_time = DIFF(start, end) - lock_wait_time;
 	pthread_mutex_unlock(&b->lock);
 	if (err < 0) {
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
@@ -2710,11 +2715,13 @@ static int _eblob_read_ll(struct eblob_backend *b, struct eblob_key *key,
 	eblob_log(b->cfg.log, EBLOB_LOG_INFO, "blob: %s: eblob_read: Ok: data_fd: %d"
 			", ctl_data_offset: %" PRIu64 ", data_offset: %" PRIu64
 			", index_fd: %d, index_offset: %" PRIu64 ", size: %" PRIu64
-			", total(disk)_size: %" PRIu64 ", on_disk: %d, want-csum: %d, csum-time: %ld usecs, "
-			"lookup-time: %ld usecs, total-time: %ld usecs, err: %d\n",
+			", total(disk)_size: %" PRIu64 ", on_disk: %d, want-csum: %d, csum-time: %ld usecs"
+			", lock_wait_time: %ld usecs, fill_wc_time: %ld usecs"
+			", lookup-time: %ld usecs, total-time: %ld usecs, err: %d\n",
 			eblob_dump_id(key->id), wc->data_fd, wc->ctl_data_offset, wc->data_offset,
 			wc->index_fd, wc->ctl_index_offset, wc->size, wc->total_size, wc->on_disk,
 			csum, csum_time,
+			lock_wait_time, fill_wc_time,
 			lookup_time, lookup_time + csum_time, err);
 
 err_out_cleanup_wc:
