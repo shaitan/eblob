@@ -112,7 +112,7 @@ int eblob_want_defrag(struct eblob_base_ctl *bctl)
 	}
 
 	if (err != EBLOB_DEFRAG_NOT_NEEDED)
-		level = EBLOB_LOG_INFO;
+		level = EBLOB_LOG_NOTICE;
 
 	eblob_log(b->cfg.log, level,
 			"%s: index: %d, removed-records: %" PRId64 ", removed-size: %" PRId64 ", "
