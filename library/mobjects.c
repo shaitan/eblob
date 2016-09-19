@@ -87,6 +87,14 @@ int eblob_base_setup_data(struct eblob_base_ctl *ctl, int force)
 		goto err_out_exit;
 	}
 
+	if (st.st_size && !ctl->index_ctl.size) {
+		err = -EBADF;
+		eblob_log(ctl->back->cfg.log, EBLOB_LOG_ERROR,
+		          "blob: i%d: blob (%" PRIu64 ") has zero-sized index: %s[%d]\n", ctl->index, st.st_size,
+		          strerror(-err), err);
+		goto err_out_exit;
+	}
+
 	if ((st.st_size && ((unsigned long long)st.st_size != ctl->data_ctl.size)) || force) {
 		ctl->data_ctl.size = st.st_size;
 	}
