@@ -335,7 +335,7 @@ err_out_free:
 	free(created);
 	free(full);
 err_out_exit:
-	eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "%s: FAILED: %d\n", __func__, err);
+	eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "i%d: %s: FAILED: %s [%d]\n", ctl->index, __func__, strerror(-err), err);
 	return err;
 }
 
