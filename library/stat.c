@@ -141,12 +141,23 @@ void eblob_stat_summary_update(struct eblob_backend *b)
 	uint32_t i;
 
 	assert(b != NULL);
-	list_for_each_entry(bctl, &b->bases, base_entry)
-		for (i = EBLOB_LST_MIN + 1; i < EBLOB_LST_MAX; i++)
-			sum[i] += eblob_stat_get(bctl->stat, i);
+	list_for_each_entry(bctl, &b->bases, base_entry) {
+		for (i = EBLOB_LST_MIN + 1; i < EBLOB_LST_MAX; ++i) {
+			switch (i) {
+			case EBLOB_LST_WANT_DEFRAG:
+				sum[i] = sum[i] || eblob_stat_get(bctl->stat, i) == EBLOB_DEFRAG_NEEDED ||
+				         eblob_stat_get(bctl->stat, i) == EBLOB_REMOVE_NEEDED;
+				break;
+			default:
+				sum[i] += eblob_stat_get(bctl->stat, i);
+				break;
+			}
+		}
+	}
 
-	for (i = EBLOB_LST_MIN + 1; i < EBLOB_LST_MAX; i++)
+	for (i = EBLOB_LST_MIN + 1; i < EBLOB_LST_MAX; i++) {
 		eblob_stat_set(b->stat_summary, i, sum[i]);
+	}
 }
 
 static void
