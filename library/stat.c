@@ -160,17 +160,27 @@ void eblob_stat_summary_update(struct eblob_backend *b)
 	}
 }
 
-static void
-eblob_stat_summary_print(FILE *fp, struct eblob_backend *b)
-{
+static void eblob_stat_print(FILE *fp, struct eblob_stat *stat) {
 	uint32_t i;
 
-	fprintf(fp, "SUMMARY:\n");
-	for (i = EBLOB_LST_MIN + 1; i < EBLOB_LST_MAX; i++)
-		fprintf(fp, "%s: %" PRId64 "\n",
-				eblob_stat_get_name(b->stat_summary, i),
-				eblob_stat_get(b->stat_summary, i));
+	for (i = EBLOB_LST_MIN + 1; i < EBLOB_LST_MAX; i++) {
+		fprintf(fp, "%s: %" PRId64 "\n", eblob_stat_get_name(stat, i), eblob_stat_get(stat, i));
+	}
+
+	fprintf(fp, "records_alive: %" PRId64 "\n",
+	        eblob_stat_get(stat, EBLOB_LST_RECORDS_TOTAL) - eblob_stat_get(stat, EBLOB_LST_RECORDS_REMOVED));
+
+	fprintf(fp, "records_alive_size: %" PRId64 "\n",
+	        eblob_stat_get(stat, EBLOB_LST_BASE_SIZE) - eblob_stat_get(stat, EBLOB_LST_REMOVED_SIZE));
+
 	fprintf(fp, "\n");
+}
+
+static void eblob_stat_summary_print(FILE *fp, struct eblob_backend *b) {
+	assert(b != NULL);
+
+	fprintf(fp, "SUMMARY:\n");
+	eblob_stat_print(fp, b->stat_summary);
 }
 
 static void
@@ -185,20 +195,13 @@ eblob_stat_base_update(struct eblob_backend *b)
 	}
 }
 
-static void
-eblob_stat_base_print(FILE *fp, struct eblob_backend *b)
-{
+static void eblob_stat_base_print(FILE *fp, struct eblob_backend *b) {
 	struct eblob_base_ctl *bctl;
-	uint32_t i;
 
 	assert(b != NULL);
 	list_for_each_entry(bctl, &b->bases, base_entry) {
 		fprintf(fp, "BASE: %s\n", bctl->name);
-		for (i = EBLOB_LST_MIN + 1; i < EBLOB_LST_MAX; i++)
-			fprintf(fp, "%s: %" PRId64 "\n",
-					eblob_stat_get_name(bctl->stat, i),
-					eblob_stat_get(bctl->stat, i));
-		fprintf(fp, "\n");
+		eblob_stat_print(fp, b->stat_summary);
 	}
 }
 
