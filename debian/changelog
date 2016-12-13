@@ -1,3 +1,13 @@
+eblob (0.23.12-5) unstable; urgency=medium
+
+  * fixed issues found by clang static analyzer
+  * statistics: add records_alive and records_alive_size
+  * fail if non-empty blob is accompanied by empty index
+  * logs: add index id into 'eblob_base_ctl_open: FAILED' log
+  * stat: change meaning of summary::want_defrag
+
+ -- Kirill Smorodinnikov <shaitkir@gmail.com>  Tue, 13 Dec 2016 14:26:17 +0300
+
 eblob (0.23.12-4) unstable; urgency=medium
 
   * logs: decrease level of 'eblob_want_defrag' log
