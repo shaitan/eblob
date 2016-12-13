@@ -2237,6 +2237,14 @@ int eblob_write_commit(struct eblob_backend *b, struct eblob_key *key,
 	if (err != 0)
 		goto err_out_cleanup_wc;
 
+	eblob_stat_dec(wc.bctl->stat, EBLOB_LST_RECORDS_UNCOMMITTED);
+	eblob_stat_sub(wc.bctl->stat, EBLOB_LST_UNCOMMITTED_SIZE,
+	               wc.total_size + sizeof(struct eblob_disk_control));
+
+	eblob_stat_dec(b->stat_summary, EBLOB_LST_RECORDS_UNCOMMITTED);
+	eblob_stat_sub(b->stat_summary, EBLOB_LST_UNCOMMITTED_SIZE,
+	               wc.total_size + sizeof(struct eblob_disk_control));
+
 err_out_cleanup_wc:
 	eblob_write_control_cleanup(&wc);
 err_out_exit:
