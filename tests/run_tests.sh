@@ -31,9 +31,13 @@ run_tests()
 echo -e "\n####################################################################"
 echo -e "                            RUNNING TESTS\n"
 
+
 run_tests >tests_result.log 2>&1 &
-wait
+wait $!
+status=$?
 echo "$(<tests_result.log)"
 
 echo -e "\n                          TESTS FINISHED"
 echo -e "####################################################################\n"
+
+exit $status
