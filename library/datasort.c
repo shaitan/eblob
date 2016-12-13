@@ -321,7 +321,6 @@ static char *datasort_mkdtemp(struct datasort_cfg *dcfg, int for_chunks)
 		goto err_free_path;
 	}
 
-	free(path);
 	return tmppath;
 
 err_free_path:
