@@ -1,3 +1,9 @@
+eblob (0.23.12-7) unstable; urgency=medium
+
+  * Fix adding zero-filled space into index file
+
+ -- Kirill Smorodinnikov <shaitkir@gmail.com>  Thu, 15 Dec 2016 17:03:12 +0300
+
 eblob (0.23.12-6) unstable; urgency=medium
 
   * Fix freeing of memory which will be used
