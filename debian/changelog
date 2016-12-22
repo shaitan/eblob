@@ -1,3 +1,9 @@
+eblob (0.23.12-8) unstable; urgency=medium
+
+  * Fix bases' statistics in .stat file
+
+ -- Kirill Smorodinnikov <shaitkir@gmail.com>  Thu, 22 Dec 2016 14:44:24 +0300
+
 eblob (0.23.12-7) unstable; urgency=medium
 
   * Fix adding zero-filled space into index file
