@@ -1023,12 +1023,15 @@ err_out_check:
 						bctl->data_ctl.offset, idc.position, idc.disk_size,
 						ctl->index_offset);
 
-				err = ftruncate(bctl->index_ctl.fd, ctl->index_offset);
-				if (err == -1) {
-					eblob_log(ctl->log, EBLOB_LOG_ERROR,
-							"blob: truncation failed: fd: %d, err: %d\n", bctl->index_ctl.fd, -errno);
-					ctl->err = -errno;
-				}
+				// err = ftruncate(bctl->index_ctl.fd, ctl->index_offset);
+				// if (err == -1) {
+				// 	eblob_log(ctl->log, EBLOB_LOG_ERROR,
+				// 			"blob: truncation failed: fd: %d, err: %d\n", bctl->index_ctl.fd, -errno);
+				// 	ctl->err = -errno;
+				// }
+				eblob_log(ctl->log, EBLOB_LOG_ERROR,
+				          "blob: i%d: interrupt truncation to debug the reason\n", bctl->index);
+				ctl->err = -EINTR;
 			}
 		}
 		pthread_mutex_unlock(&bctl->lock);
