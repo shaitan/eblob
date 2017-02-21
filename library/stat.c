@@ -201,7 +201,7 @@ static void eblob_stat_base_print(FILE *fp, struct eblob_backend *b) {
 	assert(b != NULL);
 	list_for_each_entry(bctl, &b->bases, base_entry) {
 		fprintf(fp, "BASE: %s\n", bctl->name);
-		eblob_stat_print(fp, b->stat);
+		eblob_stat_print(fp, bctl->stat);
 	}
 }
 
