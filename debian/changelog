@@ -1,3 +1,9 @@
+eblob (0.23.12-8-trunc) unstable; urgency=medium
+
+  * Do not truncate blob and fail init instead
+
+ -- Kirill Smorodinnikov <shaitkir@gmail.com>  Tue, 21 Feb 2017 12:28:05 +0300
+
 eblob (0.23.12-8) unstable; urgency=medium
 
   * Fix bases' statistics in .stat file
