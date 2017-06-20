@@ -1,14 +1,9 @@
-eblob (0.23.12-8-trunc1) unstable; urgency=medium
+eblob (0.23.12-9) unstable; urgency=medium
 
+  * stats: count record as uncommitted when prepare reuses committed one
   * Fix bases' statistics in .stat file
 
- -- Kirill Smorodinnikov <shaitkir@gmail.com>  Tue, 21 Feb 2017 17:35:07 +0300
-
-eblob (0.23.12-8-trunc) unstable; urgency=medium
-
-  * Do not truncate blob and fail init instead
-
- -- Kirill Smorodinnikov <shaitkir@gmail.com>  Tue, 21 Feb 2017 12:28:05 +0300
+ -- Kirill Smorodinnikov <shaitkir@gmail.com>  Tue, 20 Jun 2017 12:18:53 +0300
 
 eblob (0.23.12-8) unstable; urgency=medium
 
@@ -384,7 +379,7 @@ eblob (0.22.0) unstable; urgency=low
   * 	we can skip indexes to index blocks which contain our needed keys.
   * index_block: get rid of index range tree, use bsearch() to find given range in index_blocks array
   * threads: allow calling sync, defrag and periodic tasks on behalf of calling threads, not dedicated threads. Patch from <pavel@wialus.co.nz>
-  * Removed multithreading at blobs iterations 
+  * Removed multithreading at blobs iterations
 
  -- Evgeniy Polyakov <zbr@ioremap.net>  Tue, 22 Jul 2014 20:15:10 +0400
 
@@ -1387,7 +1382,7 @@ eblob (0.13.7) unstable; urgency=low
 
 eblob (0.13.6) unstable; urgency=low
 
-  * Fixed cache entry stall list head processing 
+  * Fixed cache entry stall list head processing
 
  -- Evgeniy Polyakov <zbr@ioremap.net>  Sun, 18 Dec 2011 16:53:13 +0400
 
@@ -1401,7 +1396,7 @@ eblob (0.13.4) unstable; urgency=low
 
   * If commit provides size, use it as object size. If prepare reuses existing region, do not change its sizes.
   * Changed eblob_write_prepare() first to try to check existing region if it is big enough.
- 
+
  -- Evgeniy Polyakov <zbr@ioremap.net>  Sat, 17 Dec 2011 23:54:13 +0400
 
 eblob (0.13.3) unstable; urgency=low
