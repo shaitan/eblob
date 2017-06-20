@@ -1,3 +1,9 @@
+eblob (0.23.12-9-trunc) unstable; urgency=medium
+
+  * Do not truncate blob and fail init instead
+
+ -- Kirill Smorodinnikov <shaitkir@gmail.com>  Tue, 20 Jun 2017 14:57:30 +0300
+
 eblob (0.23.12-9) unstable; urgency=medium
 
   * stats: count record as uncommitted when prepare reuses committed one
