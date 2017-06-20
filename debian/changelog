@@ -1,3 +1,10 @@
+eblob (0.23.12-9) unstable; urgency=medium
+
+  * stats: count record as uncommitted when prepare reuses committed one
+  * Fix bases' statistics in .stat file
+
+ -- Kirill Smorodinnikov <shaitkir@gmail.com>  Tue, 20 Jun 2017 12:18:53 +0300
+
 eblob (0.23.12-8) unstable; urgency=medium
 
   * Fix bases' statistics in .stat file
