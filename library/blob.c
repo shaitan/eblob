@@ -2067,6 +2067,17 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key,
 		new_flags |= BLOB_DISK_CTL_UNCOMMITTED;
 
 		if (wc.flags != new_flags) {
+			if (!(wc.flags & BLOB_DISK_CTL_UNCOMMITTED)) {
+				// update stats if the found key is committed, because now it becomes uncommitted.
+				eblob_stat_inc(wc.bctl->stat, EBLOB_LST_RECORDS_UNCOMMITTED);
+				eblob_stat_add(wc.bctl->stat, EBLOB_LST_UNCOMMITTED_SIZE,
+				               wc.total_size + sizeof(struct eblob_disk_control));
+
+				eblob_stat_inc(b->stat_summary, EBLOB_LST_RECORDS_UNCOMMITTED);
+				eblob_stat_add(b->stat_summary, EBLOB_LST_UNCOMMITTED_SIZE,
+				               wc.total_size + sizeof(struct eblob_disk_control));
+			}
+
 			wc.flags = new_flags;
 
 			err = eblob_commit_disk(b, key, &wc, 0);
