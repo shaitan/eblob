@@ -1,3 +1,9 @@
+eblob (0.23.12-10) unstable; urgency=medium
+
+  * move lookup 'stat:' log to NOTICE level
+
+ -- Kirill Smorodinnikov <shaitkir@gmail.com>  Thu, 29 Jun 2017 15:55:04 +0300
+
 eblob (0.23.12-9) unstable; urgency=medium
 
   * stats: count record as uncommitted when prepare reuses committed one
