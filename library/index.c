@@ -980,8 +980,8 @@ again:
 		break;
 	}
 
-	eblob_log(b->cfg.log, EBLOB_LOG_INFO, "blob: %s: stat: %s\n", eblob_dump_id(key->id), eblob_dump_search_stat(&st, err));
-
+	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: stat: %s\n", eblob_dump_id(key->id),
+	          eblob_dump_search_stat(&st, err));
 
 	eblob_stat_add(b->stat, EBLOB_GST_INDEX_READS, st.loops);
 
