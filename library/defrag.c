@@ -125,6 +125,17 @@ int eblob_want_defrag(struct eblob_base_ctl *bctl)
 }
 
 /*!
+ * eblob_defrag_bctls_cmp() - for use in eblob_defrag()
+ * to sort bctls by size of removed records in descending order.
+ */
+static int eblob_defrag_bctls_cmp(const void *lhs, const void *rhs) {
+	const struct eblob_base_ctl *left = *(struct eblob_base_ctl **)lhs;
+	const struct eblob_base_ctl *right = *(struct eblob_base_ctl **)rhs;
+	return eblob_stat_get(right->stat, EBLOB_LST_RECORDS_REMOVED) -
+	       eblob_stat_get(left->stat, EBLOB_LST_RECORDS_REMOVED);
+}
+
+/*!
  * eblob_defrag() - defrag (blocking call, synchronized)
  * Divides all bctls in backend into ones that need defrag/sort and ones that
  * don't. Then subdivides sortable bctls into groups so that sum of group sizes
@@ -225,6 +236,9 @@ int eblob_defrag(struct eblob_backend *b)
 		goto err_out_exit;
 	}
 	EBLOB_WARNX(b->cfg.log, EBLOB_LOG_INFO, "defrag: bases to sort: %d", bctl_cnt);
+
+	/* sort bctls by size of removed records in descending order */
+	qsort(bctls, bctl_cnt, sizeof(struct eblob_base_ctl *), eblob_defrag_bctls_cmp);
 
 	/*
 	 * Process bctls in chunks that fit into blob_size and records_in_blob
