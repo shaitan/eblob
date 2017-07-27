@@ -798,7 +798,7 @@ static int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_
 					(unsigned long long)bctl->data_ctl.size, (unsigned long long)bctl->data_ctl.offset,
 					bctl->index_ctl.sorted, err);
 			if (err)
-				goto err_out_exit;
+				goto err_out_bases_cleanup;
 		}
 		idx++;
 	}
@@ -811,6 +811,9 @@ static int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_
 
 	return 0;
 
+err_out_bases_cleanup:
+	if (ctl->flags & EBLOB_ITERATE_FLAGS_INITIAL_LOAD)
+		eblob_bases_cleanup(b);
 err_out_exit:
 	return err;
 }
