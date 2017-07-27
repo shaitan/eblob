@@ -1,3 +1,9 @@
+eblob (0.23.12-13) unstable; urgency=medium
+
+  * cleanup opened blobs on startup failure
+
+ -- Kirill Smorodinnikov <shaitkir@gmail.com>  Thu, 27 Jul 2017 11:40:32 +0300
+
 eblob (0.23.12-12) unstable; urgency=medium
 
   * sort bctls before defrag
