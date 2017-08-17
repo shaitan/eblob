@@ -2184,7 +2184,7 @@ static int eblob_write_commit_prepare(struct eblob_backend *b, struct eblob_key 
 	if (flags != ~0ULL)
 		wc->flags = flags;
 
-	wc->flags = eblob_validate_ctl_flags(b, wc->flags);
+	wc->flags = eblob_validate_ctl_flags(b, wc->flags) | BLOB_DISK_CTL_UNCOMMITTED;
 
 	/*
 	 * We can only overwrite keys inplace if data-sort is not processing
