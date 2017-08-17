@@ -2184,7 +2184,7 @@ static int eblob_write_commit_prepare(struct eblob_backend *b, struct eblob_key 
 	if (flags != ~0ULL)
 		wc->flags = flags;
 
-	wc->flags = eblob_validate_ctl_flags(b, wc->flags);
+	wc->flags = eblob_validate_ctl_flags(b, wc->flags) | BLOB_DISK_CTL_UNCOMMITTED;
 
 	/*
 	 * We can only overwrite keys inplace if data-sort is not processing
@@ -2724,11 +2724,11 @@ static int _eblob_read_ll(struct eblob_backend *b, struct eblob_key *key,
 	gettimeofday(&end, NULL);
 	csum_time = DIFF(start, end);
 
-	eblob_log(b->cfg.log, EBLOB_LOG_INFO, "blob: %s: eblob_read: Ok: data_fd: %d"
+	eblob_log(b->cfg.log, EBLOB_LOG_INFO, "blob i%d: %s: eblob_read: Ok: data_fd: %d"
 			", ctl_data_offset: %" PRIu64 ", data_offset: %" PRIu64
 			", index_fd: %d, index_offset: %" PRIu64 ", size: %" PRIu64
 			", total(disk)_size: %" PRIu64 ", on_disk: %d, want-csum: %d, csum-time: %ld usecs, err: %d\n",
-			eblob_dump_id(key->id), wc->data_fd, wc->ctl_data_offset, wc->data_offset,
+			wc->index, eblob_dump_id(key->id), wc->data_fd, wc->ctl_data_offset, wc->data_offset,
 			wc->index_fd, wc->ctl_index_offset, wc->size, wc->total_size, wc->on_disk,
 			csum, csum_time, err);
 
