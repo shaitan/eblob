@@ -1,3 +1,10 @@
+eblob (0.23.12-14) unstable; urgency=medium
+
+  * add blob idx into eblob_read log
+  * keep uncommitted record uncommitted after copying it from binlog'ed blob
+
+ -- Kirill Smorodinnikov <shaitkir@gmail.com>  Mon, 21 Aug 2017 15:41:01 +0300
+
 eblob (0.23.12-13) unstable; urgency=medium
 
   * cleanup opened blobs on startup failure
