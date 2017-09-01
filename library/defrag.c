@@ -131,8 +131,8 @@ int eblob_want_defrag(struct eblob_base_ctl *bctl)
 static int eblob_defrag_bctls_cmp(const void *lhs, const void *rhs) {
 	const struct eblob_base_ctl *left = *(struct eblob_base_ctl **)lhs;
 	const struct eblob_base_ctl *right = *(struct eblob_base_ctl **)rhs;
-	return eblob_stat_get(right->stat, EBLOB_LST_RECORDS_REMOVED) -
-	       eblob_stat_get(left->stat, EBLOB_LST_RECORDS_REMOVED);
+	return eblob_stat_get(right->stat, EBLOB_LST_REMOVED_SIZE) -
+	       eblob_stat_get(left->stat, EBLOB_LST_REMOVED_SIZE);
 }
 
 /*!
