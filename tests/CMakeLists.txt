@@ -14,13 +14,13 @@ add_custom_target(test_cpp
 
 # unit tests
 add_executable(eblob_crypto_test unit/crypto.cpp)
-target_link_libraries(eblob_crypto_test eblob -lboost_unit_test_framework)
+target_link_libraries(eblob_crypto_test eblob ${Boost_LIBRARIES})
 add_custom_target(test_crypto
                   COMMAND "${CMAKE_CURRENT_BINARY_DIR}/eblob_crypto_test"
                   DEPENDS ${TESTS_DEPS} eblob_crypto_test)
 
 add_executable(eblob_corruption_test unit/corruption.cpp)
-target_link_libraries(eblob_corruption_test eblob -lboost_unit_test_framework -lboost_filesystem)
+target_link_libraries(eblob_corruption_test eblob ${Boost_LIBRARIES})
 add_custom_target(test_corruption
                   COMMAND "${CMAKE_CURRENT_BINARY_DIR}/eblob_corruption_test"
                   DEPENDS ${TESTS_DEPS} eblob_corruption_test)
