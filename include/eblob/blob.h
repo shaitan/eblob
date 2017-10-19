@@ -221,6 +221,11 @@ enum eblob_read_flavour {
  */
 #define BLOB_DISK_CTL_CHUNKED_CSUM	(1<<8)
 
+/*
+ * This flag is set to records which were found corrupted.
+ */
+#define BLOB_DISK_CTL_CORRUPTED         (1<<9)
+
 struct eblob_disk_control {
 	/* key data */
 	struct eblob_key	key;
@@ -731,6 +736,8 @@ enum eblob_stat_local_flavour {
 	EBLOB_LST_UNCOMMITTED_SIZE,	/* total size occupied by all uncommitted records
 					 * in all blobs and index files
 					 */
+	EBLOB_LST_RECORDS_CORRUPTED,
+	EBLOB_LST_CORRUPTED_SIZE,
 	EBLOB_LST_MAX,
 };
 
@@ -793,7 +800,8 @@ static inline const char *eblob_dump_dctl_flags(uint64_t flags) {
 		{ BLOB_DISK_CTL_OVERWRITE,	"overwrite"},
 		{ BLOB_DISK_CTL_EXTHDR,		"exthdr"},
 		{ BLOB_DISK_CTL_UNCOMMITTED,	"uncommitted"},
-		{ BLOB_DISK_CTL_CHUNKED_CSUM,	"chunked_csum"}
+		{ BLOB_DISK_CTL_CHUNKED_CSUM,	"chunked_csum"},
+		{ BLOB_DISK_CTL_CORRUPTED,      "corrupted"}
 	};
 
 	eblob_dump_flags_raw(buffer, sizeof(buffer), flags, infos, sizeof(infos) / sizeof(infos[0]));

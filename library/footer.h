@@ -60,6 +60,22 @@ uint64_t eblob_get_footer_size(const struct eblob_backend *b, const struct eblob
  */
 int eblob_commit_footer(struct eblob_backend *b, struct eblob_key *key, struct eblob_write_control *wc);
 
+/*
+ * eblob_verify_sha512() - verifies checksum of enty pointed by @wc by comparing sha512 of whole record's data with
+ * footer.
+ *
+ * Returns negative error value or zero on success.
+ */
+int eblob_verify_sha512(struct eblob_backend *b, struct eblob_key *key, struct eblob_write_control *wc);
+
+/*
+ * eblob_verify_mmhash() - verifies checksum of entry pointed by @wc by comparing MurmurHash64A of record's data chunks
+ * with footer. It will checks only chunks that intersect @wc->offset and @wc->size.
+ *
+ * Returns negative error value or zero on success.
+ */
+int eblob_verify_mmhash(struct eblob_backend *b, struct eblob_key *key, struct eblob_write_control *wc);
+
 #ifdef __cplusplus
 }
 #endif

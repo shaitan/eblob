@@ -138,7 +138,7 @@ static const struct eblob_stat_entry eblob_stat_default_local[] = {
 		{0}
 	},
 	{
-		"records_corrupted",
+		"indexes_corrupted",
 		EBLOB_LST_INDEX_CORRUPTED_ENTRIES,
 		{0}
 	},
@@ -175,6 +175,16 @@ static const struct eblob_stat_entry eblob_stat_default_local[] = {
 	{
 		"records_uncommitted_size",
 		EBLOB_LST_UNCOMMITTED_SIZE,
+		{0}
+	},
+	{
+		"records_corrupted",
+		EBLOB_LST_RECORDS_CORRUPTED,
+		{0}
+	},
+	{
+		"records_corrupted_size",
+		EBLOB_LST_CORRUPTED_SIZE,
 		{0}
 	},
 	{
