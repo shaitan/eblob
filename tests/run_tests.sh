@@ -11,6 +11,7 @@ $(find . -name eblob_cpp_test)
 
 # Run unit tests
 $(find . -name eblob_crypto_test)
+$(find . -name eblob_corruption_test)
 
 # Big and small stress tests
 $(find . -name eblob_stress) -m0 -f1000 -D0 -I300000 -o20000 -i1000 -l4 -r 1000 -S10 -F87
