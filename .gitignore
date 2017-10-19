@@ -12,6 +12,7 @@
 *.tar.gz
 .sw*
 *~
+.*
 CMakeCache.txt
 CMakeFiles/
 Makefile
@@ -28,3 +29,15 @@ tests/eblob_cpp_test
 tests/eblob_stress
 tests/tmp/
 build/*
+obj-x86_64-linux-gnu/
+debian/eblob
+debian/eblob-dbg.debhelper.log
+debian/eblob-dbg.substvars
+debian/eblob.debhelper.log
+debian/eblob.postinst.debhelper
+debian/eblob.postrm.debhelper
+debian/eblob.substvars
+debian/eblob-dbg.debhelper.log
+debian/eblob-dbg.substvars
+debian/eblob-dbg
+debian/files
