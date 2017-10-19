@@ -6,6 +6,7 @@ Build-Depends:
  cmake (>= 2.6),
  debhelper (>= 7.0.50~),
  libboost-dev,
+ libboost-filesystem-dev,
  libboost-iostreams-dev,
  libboost-python-dev,
  libboost-regex-dev,

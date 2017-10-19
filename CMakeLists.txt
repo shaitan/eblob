@@ -16,10 +16,6 @@ set(EBLOB_VERSION "${EBLOB_VERSION_ABI}.${EBLOB_VERSION_MINOR}")
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 include(cmake/Modules/locate_library.cmake)
 
-locate_library(HANDYSTATS "handystats/core.hpp" "handystats")
-include_directories(${HANDYSTATS_INCLUDE_DIRS})
-link_directories(${HANDYSTATS_LIBRARY_DIRS})
-
 include(CheckAtomic)
 include(CheckSymbolExists)
 
@@ -129,7 +125,7 @@ set(CMAKE_THREAD_PREFER_PTHREAD ON)
 find_package(Threads REQUIRED)
 
 # Check for boost
-find_package(Boost REQUIRED COMPONENTS iostreams thread system regex python unit_test_framework)
+find_package(Boost REQUIRED COMPONENTS iostreams thread system regex python unit_test_framework filesystem)
 message(STATUS "Boost information:")
 message(STATUS "  Boost_INCLUDE_DIRS: ${Boost_INCLUDE_DIRS}")
 message(STATUS "  Boost_LIBRARY_DIRS: ${Boost_LIBRARY_DIRS}")
@@ -139,6 +135,7 @@ message(STATUS "  Boost_LIBRARIES: ${Boost_LIBRARIES}")
 include_directories(
 	${CMAKE_SOURCE_DIR}/include/
 	${Boost_INCLUDE_DIRS}
+	${CMAKE_SOURCE_DIR}/
 )
 
 link_directories(

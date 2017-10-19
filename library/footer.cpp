@@ -163,12 +163,7 @@ uint64_t eblob_get_footer_size(const struct eblob_backend *b, const struct eblob
 		return sizeof(struct eblob_disk_footer);
 }
 
-/*
- * eblob_verify_sha512() - verifies checksum of enty pointed by @wc by comparing sha512 of whole record's data with footer.
- *
- * Returns negative error value or zero on success.
- */
-static int eblob_verify_sha512(struct eblob_backend *b, struct eblob_key *key, struct eblob_write_control *wc) {
+int eblob_verify_sha512(struct eblob_backend *b, struct eblob_key *key, struct eblob_write_control *wc) {
 	struct eblob_disk_footer f;
 	unsigned char csum[EBLOB_ID_SIZE];
 	int err = 0;
@@ -216,13 +211,7 @@ static int eblob_verify_sha512(struct eblob_backend *b, struct eblob_key *key, s
 }
 
 
-/*
- * eblob_verify_mmhash() - verifies checksum of entry pointed by @wc by comparing MurmurHash64A of record's data chunks with footer.
- * It will checks only chunks that intersect @wc->offset and @wc->size.
- *
- * Returns negative error value or zero on success.
- */
-static int eblob_verify_mmhash(struct eblob_backend *b, struct eblob_key *key, struct eblob_write_control *wc) {
+int eblob_verify_mmhash(struct eblob_backend *b, struct eblob_key *key, struct eblob_write_control *wc) {
 	int err = 0;
 	uint64_t footers_offset = 0,
 	         footers_size = 0;
@@ -269,29 +258,6 @@ static int eblob_verify_mmhash(struct eblob_backend *b, struct eblob_key *key, s
 	          wc->index, eblob_dump_id(key->id), __func__);
 
 	return 0;
-}
-
-int eblob_verify_checksum(struct eblob_backend *b, struct eblob_key *key, struct eblob_write_control *wc) {
-	if (b->cfg.blob_flags & EBLOB_NO_FOOTER ||
-	    wc->flags & BLOB_DISK_CTL_NOCSUM)
-		return 0;
-
-	if (wc->total_size <= wc->total_data_size + sizeof(struct eblob_disk_control)) {
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %i: %s: %s: record doesn't have valid footer: "
-		          "total_size: %" PRIu64 ", total_data_size + eblob_disk_control: %" PRIu64,
-		          wc->index, eblob_dump_id(key->id), __func__,
-		          wc->total_size, wc->total_data_size + sizeof(struct eblob_disk_control));
-		return -EINVAL;
-	}
-
-	FORMATTED(HANDY_TIMER_SCOPE, ("eblob.%u.verify_checksum", b->cfg.stat_id));
-
-	int err;
-	if (wc->flags & BLOB_DISK_CTL_CHUNKED_CSUM)
-		err = eblob_verify_mmhash(b, key, wc);
-	else
-		err = eblob_verify_sha512(b, key, wc);
-	return err;
 }
 
 int eblob_commit_footer(struct eblob_backend *b, struct eblob_key *key, struct eblob_write_control *wc) {

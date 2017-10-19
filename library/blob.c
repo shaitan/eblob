@@ -651,6 +651,14 @@ static int eblob_check_disk_one(struct eblob_iterate_local *loc)
 			size_stat_id = EBLOB_LST_UNCOMMITTED_SIZE;
 		}
 
+		if (dc->flags & BLOB_DISK_CTL_CORRUPTED) {
+			const int64_t record_size = dc->disk_size + sizeof(struct eblob_disk_control);
+			eblob_stat_inc(bc->stat, EBLOB_LST_RECORDS_CORRUPTED);
+			eblob_stat_add(bc->stat, EBLOB_LST_CORRUPTED_SIZE, record_size);
+			eblob_stat_inc(ctl->b->stat_summary, EBLOB_LST_RECORDS_CORRUPTED);
+			eblob_stat_add(ctl->b->stat_summary, EBLOB_LST_CORRUPTED_SIZE, record_size);
+		}
+
 		if (counter_stat_id != EBLOB_LST_MIN && size_stat_id != EBLOB_LST_MIN) {
 			/* size of the place occupied by the record in the index and the blob */
 			const int64_t record_size = dc->disk_size + sizeof(struct eblob_disk_control);
@@ -1203,6 +1211,13 @@ static int eblob_mark_entry_removed(struct eblob_backend *b,
 		eblob_stat_sub(old->bctl->stat, EBLOB_LST_UNCOMMITTED_SIZE, record_size);
 		eblob_stat_dec(b->stat_summary, EBLOB_LST_RECORDS_UNCOMMITTED);
 		eblob_stat_sub(b->stat_summary, EBLOB_LST_UNCOMMITTED_SIZE, record_size);
+	}
+
+	if (old_dc.flags & BLOB_DISK_CTL_CORRUPTED) {
+		eblob_stat_dec(old->bctl->stat, EBLOB_LST_RECORDS_CORRUPTED);
+		eblob_stat_sub(old->bctl->stat, EBLOB_LST_CORRUPTED_SIZE, record_size);
+		eblob_stat_dec(b->stat_summary, EBLOB_LST_RECORDS_CORRUPTED);
+		eblob_stat_sub(b->stat_summary, EBLOB_LST_CORRUPTED_SIZE, record_size);
 	}
 
 	eblob_stat_inc(old->bctl->stat, EBLOB_LST_RECORDS_REMOVED);
@@ -3263,4 +3278,119 @@ int eblob_remove_hashed(struct eblob_backend *b, const void *key, const uint64_t
 	eblob_hash(b, ekey.id, sizeof(ekey.id), key, ksize);
 
 	return eblob_remove(b, &ekey);
+}
+
+static int eblob_mark_header_corrupted(struct eblob_backend *b, struct eblob_key *key, int fd, uint64_t offset) {
+	struct eblob_disk_control dc;
+	int err;
+	uint64_t flags;
+
+	err = __eblob_read_ll(fd, &dc, sizeof(dc), offset);
+	if (err) {
+		EBLOB_WARNX(b->cfg.log, EBLOB_LOG_ERROR, "%s: %s: __eblob_read_ll: FAILED: index-fd: %d, err: %d",
+		            eblob_dump_id(key->id), __func__, fd, err);
+		goto err;
+	}
+
+	if (memcmp(&dc.key, key, sizeof(struct eblob_key)) != 0) {
+		EBLOB_WARNX(b->cfg.log, EBLOB_LOG_ERROR, "%s: keys mismatch: in-memory: %s, on-disk: %s",
+		            __func__,
+		            eblob_dump_id_len(key->id, EBLOB_ID_SIZE),
+		            eblob_dump_id_len(dc.key.id, EBLOB_ID_SIZE));
+		err = -EINVAL;
+		goto err;
+	}
+
+	flags = eblob_bswap64(dc.flags | BLOB_DISK_CTL_CORRUPTED);
+	err = __eblob_write_ll(fd, &flags, sizeof(flags), offset + offsetof(struct eblob_disk_control, flags));
+	if (err) {
+		EBLOB_WARNX(b->cfg.log, EBLOB_LOG_ERROR, "%s: %s: eblob_mark_index_removed: FAILED: "
+		                                         "index-fd: %d, err: %d",
+		            eblob_dump_id(key->id), __func__, fd, err);
+		goto err;
+	}
+err:
+	return  err;
+}
+
+static void eblob_mark_entry_corrupted(struct eblob_backend *b, struct eblob_key *key, struct eblob_write_control *wc) {
+	assert(b != NULL);
+	assert(key != NULL);
+	assert(wc != NULL);
+
+	struct eblob_base_ctl *bctl = NULL, *it = NULL;
+
+	// check that record is not marked corrupted yet
+	if (wc->flags & BLOB_DISK_CTL_CORRUPTED)
+		return;
+
+	// TODO(shaitan): bad idea to use global lock
+	pthread_mutex_lock(&b->lock);
+	// Tries to find bctl by its index from @wc
+	list_for_each_entry(it, &b->bases, base_entry) {
+		if (it->index == wc->index) {
+			bctl = it;
+			break;
+		}
+	}
+	// if bctl is found, hold it to protect from defrag
+	if (bctl)
+		eblob_bctl_hold(bctl);
+	pthread_mutex_unlock(&b->lock);
+
+	// offsets from wc are out-dated and can not be used if bctl is not found or it was defraged
+	if (!bctl || bctl->index_ctl.fd != wc->index_fd || bctl->data_ctl.fd != wc->data_fd)
+		goto err_out;
+
+	// skip if binlog is enabled since currently there is no correct way to mark entry removed
+	if (eblob_binlog_enabled(&bctl->binlog))
+		goto err_out_release_bctl;
+
+	if (eblob_mark_header_corrupted(b, key, wc->index_fd, wc->ctl_index_offset))
+		goto err_out_release_bctl;
+
+	if (eblob_mark_header_corrupted(b, key, wc->data_fd, wc->ctl_data_offset))
+		goto err_out_release_bctl;
+
+	eblob_stat_inc(bctl->stat, EBLOB_LST_RECORDS_CORRUPTED);
+	eblob_stat_add(bctl->stat, EBLOB_LST_CORRUPTED_SIZE, wc->total_size);
+	eblob_stat_inc(b->stat_summary, EBLOB_LST_RECORDS_CORRUPTED);
+	eblob_stat_add(b->stat_summary, EBLOB_LST_CORRUPTED_SIZE, wc->total_size);
+
+	if (!b->cfg.sync) {
+		eblob_fdatasync(wc->index_fd);
+		eblob_fdatasync(wc->data_fd);
+	}
+
+err_out_release_bctl:
+	eblob_bctl_release(bctl);
+err_out:
+	return;
+}
+
+int eblob_verify_checksum(struct eblob_backend *b, struct eblob_key *key, struct eblob_write_control *wc) {
+	if (b->cfg.blob_flags & EBLOB_NO_FOOTER ||
+	    wc->flags & BLOB_DISK_CTL_NOCSUM)
+		return 0;
+
+	if (wc->total_size <= wc->total_data_size + sizeof(struct eblob_disk_control)) {
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %i: %s: %s: record doesn't have valid footer: "
+		                                       "total_size: %" PRIu64 ", total_data_size + eblob_disk_control: %" PRIu64,
+		          wc->index, eblob_dump_id(key->id), __func__,
+		          wc->total_size, wc->total_data_size + sizeof(struct eblob_disk_control));
+		return -EINVAL;
+	}
+
+	HANDY_TIMER_SCOPE(("eblob.%u.verify_checksum", b->cfg.stat_id));
+
+	int err;
+	if (wc->flags & BLOB_DISK_CTL_CHUNKED_CSUM)
+		err = eblob_verify_mmhash(b, key, wc);
+	else
+		err = eblob_verify_sha512(b, key, wc);
+
+	if (err)
+		eblob_mark_entry_corrupted(b, key, wc);
+
+	return err;
 }

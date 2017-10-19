@@ -6,7 +6,7 @@
 #  HANDYSTATS_INCLUDE_DIRS - the include path of the handystats library
 #  HANDYSTATS_CFLAGS - flags to compile with
 
-find_path(HANDYSTATS_INCLUDE_DIRS handystats/operation.hpp)
+find_path(HANDYSTATS_INCLUDE_DIRS handystats/core.h)
 
 find_library(HANDYSTATS_LIBRARY handystats)
 

@@ -61,7 +61,7 @@ void eblob_log_raw_formatted(void *priv, int level, const char *msg)
 	FILE *stream = priv;
 
 	if (!stream)
-		stream = stdout;
+		stream = stderr;
 
 	gettimeofday(&tv, NULL);
 	localtime_r((time_t *)&tv.tv_sec, &tm);
