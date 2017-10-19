@@ -139,6 +139,7 @@ message(STATUS "  Boost_LIBRARIES: ${Boost_LIBRARIES}")
 include_directories(
 	${CMAKE_SOURCE_DIR}/include/
 	${Boost_INCLUDE_DIRS}
+	${CMAKE_SOURCE_DIR}/
 )
 
 link_directories(
