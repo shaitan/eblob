@@ -3,8 +3,10 @@
 
 #include <boost/test/unit_test.hpp>
 #include <boost/filesystem.hpp>
-#include <library/blob.h>
 
+#include <future>
+
+#include "library/blob.h"
 #include "library/crypto/sha512.h"
 
 #include "eblob/eblob.hpp"
@@ -31,12 +33,12 @@ public:
 			config.log = logger_.log();
 			config.file = (char *)data_path_.c_str();
 			config.blob_size = EBLOB_BLOB_DEFAULT_BLOB_SIZE;
-			config.records_in_blob = EBLOB_BLOB_DEFAULT_RECORDS_IN_BLOB;
+			config.records_in_blob = 100 /*EBLOB_BLOB_DEFAULT_RECORDS_IN_BLOB*/;
 			config.defrag_percentage = EBLOB_DEFAULT_DEFRAG_PERCENTAGE;
 			config.defrag_timeout = EBLOB_DEFAULT_DEFRAG_TIMEOUT;
 			config.index_block_size = EBLOB_INDEX_DEFAULT_BLOCK_SIZE;
 			config.index_block_bloom_length = EBLOB_INDEX_DEFAULT_BLOCK_BLOOM_LENGTH;
-			config.blob_size_limit = 0;
+			config.blob_size_limit = UINT64_MAX;
 			config.defrag_time = EBLOB_DEFAULT_DEFRAG_TIME;
 			config.defrag_splay = EBLOB_DEFAULT_DEFRAG_SPLAY;
 			config.periodic_timeout = EBLOB_DEFAULT_PERIODIC_THREAD_TIMEOUT;
@@ -239,4 +241,68 @@ BOOST_AUTO_TEST_CASE(test_footer_corruption) {
 	BOOST_REQUIRE_EQUAL(eblob_stat_get(wrapper.get()->stat_summary, EBLOB_LST_RECORDS_CORRUPTED), 1);
 	BOOST_REQUIRE_EQUAL(eblob_remove(wrapper.get(), &key), 0);
 	BOOST_REQUIRE_EQUAL(eblob_stat_get(wrapper.get()->stat_summary, EBLOB_LST_RECORDS_CORRUPTED), 0);
+}
+
+BOOST_AUTO_TEST_CASE(test_inspection) {
+	eblob_wrapper wrapper;
+	BOOST_REQUIRE(wrapper.get() != nullptr);
+
+	constexpr char data[] = "some data";
+	constexpr size_t keys_number = 1000;
+
+	for (size_t i = 0; i < keys_number; ++i) {
+		auto key = hash(std::to_string(i));
+		BOOST_REQUIRE_EQUAL(
+			eblob_write(wrapper.get(), &key, (void *)data, /*offset*/ 0, sizeof(data), /*flags*/ 0),
+			0
+		);
+	}
+
+	eblob_write_control wc;
+	size_t count = 0;
+	for (size_t i = 0; i < keys_number; i += 10) {
+		auto key = hash(std::to_string(i));
+		BOOST_REQUIRE_EQUAL(eblob_read_return(wrapper.get(), &key, EBLOB_READ_CSUM, &wc), 0);
+		// corrupt data
+		BOOST_REQUIRE_EQUAL(__eblob_write_ll(wc.data_fd, "a", 1, wc.data_offset), 0);
+		++count;
+	}
+
+	wrapper.get()->want_inspect = EBLOB_INSPECT_STATE_INSPECTING;
+	BOOST_REQUIRE_EQUAL(eblob_inspect(wrapper.get()), 0);
+	wrapper.get()->want_inspect = EBLOB_INSPECT_STATE_NOT_STARTED;
+
+	wrapper.get()->want_defrag = EBLOB_DEFRAG_STATE_DATA_SORT;
+	BOOST_REQUIRE_EQUAL(eblob_defrag(wrapper.get()), 0);
+	wrapper.get()->want_defrag = EBLOB_DEFRAG_STATE_NOT_STARTED;
+
+	BOOST_REQUIRE_EQUAL(eblob_periodic(wrapper.get()), 0);
+
+	BOOST_REQUIRE_EQUAL(eblob_stat_get(wrapper.get()->stat_summary, EBLOB_LST_RECORDS_CORRUPTED), count);
+
+	{
+
+		// read of corrupted key should not increase the number of corrupted records
+		auto key = hash(std::to_string(0));
+		BOOST_REQUIRE_EQUAL(eblob_read_return(wrapper.get(), &key, EBLOB_READ_CSUM, &wc), -EILSEQ);
+		BOOST_REQUIRE_EQUAL(eblob_stat_get(wrapper.get()->stat_summary, EBLOB_LST_RECORDS_CORRUPTED), count);
+	}
+
+	{
+		// remove of corrupted key should decrease the number of corrupted records
+		auto key = hash(std::to_string(0));
+		BOOST_REQUIRE_EQUAL(eblob_remove(wrapper.get(), &key), 0);
+		BOOST_REQUIRE_EQUAL(eblob_stat_get(wrapper.get()->stat_summary, EBLOB_LST_RECORDS_CORRUPTED), --count);
+	}
+
+	{
+		// rewrite of corrupted key should decrease the number of corrupted records
+		auto key = hash(std::to_string(10));
+		constexpr char new_data[] = "some new data";
+		BOOST_REQUIRE_EQUAL(
+			eblob_write(wrapper.get(), &key, (void *)new_data, /*offset*/ 0, sizeof(new_data), /*flags*/ 0),
+			0
+		);
+		BOOST_REQUIRE_EQUAL(eblob_stat_get(wrapper.get()->stat_summary, EBLOB_LST_RECORDS_CORRUPTED), --count);
+	}
 }

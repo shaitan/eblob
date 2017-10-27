@@ -756,6 +756,25 @@ int eblob_stat_json_get(struct eblob_backend *b, char **json_stat, size_t *size)
 int eblob_sync(struct eblob_backend *b);
 int eblob_defrag(struct eblob_backend *b);
 int eblob_periodic(struct eblob_backend *b);
+int eblob_inspect(struct eblob_backend *b);
+
+enum eblob_inspect_state {
+	EBLOB_INSPECT_STATE_NOT_STARTED,	/* no inspection is in progress */
+	EBLOB_INSPECT_STATE_INSPECTING		/* inspection is in progress */
+};
+
+/**
+ * eblob_start_inspect() - start inspection in background thread
+ */
+int eblob_start_inspect(struct eblob_backend *b);
+/**
+ * eblob_stop_inspect() - stop inspection in background thread
+ */
+int eblob_stop_inspect(struct eblob_backend *b);
+/**
+ * eblob_inspect_status() - get current state of background inspection
+ */
+int eblob_inspect_status(struct eblob_backend *b);
 
 struct eblob_flag_info {
 	uint64_t flag;
