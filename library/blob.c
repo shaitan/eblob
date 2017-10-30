@@ -2882,6 +2882,8 @@ static void *eblob_sync_thread(void *data)
 {
 	struct eblob_backend *b = data;
 
+	eblob_set_name("sync_%u", b->cfg.stat_id);
+
 	while (b->cfg.sync && (eblob_event_wait(&b->exit_event, b->cfg.sync) == -ETIMEDOUT)) {
 		eblob_sync(b);
 	}
@@ -2931,6 +2933,8 @@ static int eblob_cache_statvfs(struct eblob_backend *b)
 static void *eblob_periodic_thread(void *data)
 {
 	struct eblob_backend *b = data;
+
+	eblob_set_name("periodic_%u", b->cfg.stat_id);
 
 	while (eblob_event_wait(&b->exit_event, 1) == -ETIMEDOUT) {
 		eblob_periodic(b);
@@ -3017,6 +3021,9 @@ int eblob_inspect_status(struct eblob_backend *b) {
  */
 static void *eblob_inspect_thread(void *data) {
 	struct eblob_backend *b = data;
+
+	eblob_set_name("inspect_%u", b->cfg.stat_id);
+
 	while(eblob_event_wait(&b->exit_event, 1) == -ETIMEDOUT) {
 		if (b->want_inspect) {
 			eblob_inspect(b);
@@ -3576,4 +3583,17 @@ int eblob_verify_checksum(struct eblob_backend *b, struct eblob_key *key, struct
 		eblob_mark_entry_corrupted(b, key, wc);
 
 	return err;
+}
+
+int eblob_set_name(const char *format, ...) {
+	char name[16 + 1];
+	memset(name, 0, sizeof(name));
+
+
+	va_list args;
+	va_start(args, format);
+	vsnprintf(name, sizeof(name), format, args);
+	va_end(args);
+
+	return pthread_setname_np(pthread_self(), name);
 }

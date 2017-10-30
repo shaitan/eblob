@@ -592,6 +592,8 @@ static inline const char *eblob_want_defrag_string(int want_defrag)
 
 char *eblob_dump_dc(const struct eblob_disk_control *dc, char *buffer, size_t size);
 
+int eblob_set_name(const char *format, ...);
+
 #ifdef __cplusplus
 }
 #endif

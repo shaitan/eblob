@@ -352,6 +352,8 @@ void *eblob_defrag_thread(void *data)
 	if (b == NULL)
 		return NULL;
 
+	eblob_set_name("defrag_%u", b->cfg.stat_id);
+
 	sleep_time = datasort_next_defrag(b);
 	while (1) {
 		if ((sleep_time-- != 0) && (b->want_defrag == EBLOB_DEFRAG_STATE_NOT_STARTED)) {
