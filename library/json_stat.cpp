@@ -15,7 +15,7 @@ extern "C" {
 
 struct json_stat_cache {
 	json_stat_cache()
-	: timestamp({0, 0})
+	: timestamp{0, 0}
 	{}
 
 	std::string		json;
