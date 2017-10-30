@@ -44,6 +44,8 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "ioprio.h"
+
 /**
  * eblob_want_defrag() - gets number of removed records/non-removed records
  * and compares it with total.
@@ -353,6 +355,13 @@ void *eblob_defrag_thread(void *data)
 		return NULL;
 
 	eblob_set_name("defrag_%u", b->cfg.stat_id);
+
+	if (b->cfg.bg_ioprio_class != IOPRIO_CLASS_NONE) {
+		if (eblob_ioprio_set(IOPRIO_PRIO_VALUE(b->cfg.bg_ioprio_class, b->cfg.bg_ioprio_data)) == -1) {
+			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "%s: failed to set ioprio: %s[%d]",
+			          __func__, strerror(errno), errno);
+		}
+	}
 
 	sleep_time = datasort_next_defrag(b);
 	while (1) {

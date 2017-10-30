@@ -420,9 +420,15 @@ struct eblob_config {
 	 */
 	char			*chunks_dir;
 
+	/* IO nice parameters for background threads.
+	 * for more details: http://man7.org/linux/man-pages/man2/ioprio_set.2.html
+	 */
+	int			bg_ioprio_class;  // one of IOPRIO_CLASS_*
+	int			bg_ioprio_data; // priority level within @bg_ioprio_class
+
 	/* for future use */
 	uint64_t		__pad_64[8];
-	int			__pad_int[5];
+	int			__pad_int[3];
 	char			__pad_char[8];
 	void			*__pad_voidp[7];
 };

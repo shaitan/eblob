@@ -51,6 +51,7 @@
 #include <unistd.h>
 
 #include "measure_points.h"
+#include "ioprio.h"
 
 #define DIFF(s, e) ((e).tv_sec - (s).tv_sec) * 1000000 + ((e).tv_usec - (s).tv_usec)
 
@@ -2884,6 +2885,13 @@ static void *eblob_sync_thread(void *data)
 
 	eblob_set_name("sync_%u", b->cfg.stat_id);
 
+	if (b->cfg.bg_ioprio_class != IOPRIO_CLASS_NONE) {
+		if (eblob_ioprio_set(IOPRIO_PRIO_VALUE(b->cfg.bg_ioprio_class, b->cfg.bg_ioprio_data)) == -1) {
+			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "%s: failed to set ioprio: %s[%d]",
+			          __func__, strerror(errno), errno);
+		}
+	}
+
 	while (b->cfg.sync && (eblob_event_wait(&b->exit_event, b->cfg.sync) == -ETIMEDOUT)) {
 		eblob_sync(b);
 	}
@@ -2935,6 +2943,13 @@ static void *eblob_periodic_thread(void *data)
 	struct eblob_backend *b = data;
 
 	eblob_set_name("periodic_%u", b->cfg.stat_id);
+
+	if (b->cfg.bg_ioprio_class != IOPRIO_CLASS_NONE) {
+		if (eblob_ioprio_set(IOPRIO_PRIO_VALUE(b->cfg.bg_ioprio_class, b->cfg.bg_ioprio_data)) == -1) {
+			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "%s: failed to set ioprio: %s[%d]",
+			          __func__, strerror(errno), errno);
+		}
+	}
 
 	while (eblob_event_wait(&b->exit_event, 1) == -ETIMEDOUT) {
 		eblob_periodic(b);
@@ -3023,6 +3038,13 @@ static void *eblob_inspect_thread(void *data) {
 	struct eblob_backend *b = data;
 
 	eblob_set_name("inspect_%u", b->cfg.stat_id);
+
+	if (b->cfg.bg_ioprio_class != IOPRIO_CLASS_NONE) {
+		if (eblob_ioprio_set(IOPRIO_PRIO_VALUE(b->cfg.bg_ioprio_class, b->cfg.bg_ioprio_data)) == -1) {
+			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "%s: failed to set ioprio: %s[%d]",
+			          __func__, strerror(errno), errno);
+		}
+	}
 
 	while(eblob_event_wait(&b->exit_event, 1) == -ETIMEDOUT) {
 		if (b->want_inspect) {
@@ -3258,6 +3280,11 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 
 	if (!c->periodic_timeout) {
 		c->periodic_timeout = EBLOB_DEFAULT_PERIODIC_THREAD_TIMEOUT;
+	}
+
+	if (c->bg_ioprio_class < IOPRIO_CLASS_NONE ||
+	    c->bg_ioprio_class > IOPRIO_CLASS_IDLE) {
+		c->bg_ioprio_class = IOPRIO_CLASS_NONE;
 	}
 
 	memcpy(&b->cfg, c, sizeof(struct eblob_config));
@@ -3596,4 +3623,18 @@ int eblob_set_name(const char *format, ...) {
 	va_end(args);
 
 	return pthread_setname_np(pthread_self(), name);
+}
+
+static char *ioprio_class_strings[] = {
+	[IOPRIO_CLASS_NONE] = "none",
+	[IOPRIO_CLASS_RT] = "real-time",
+	[IOPRIO_CLASS_BE] = "best-effort",
+	[IOPRIO_CLASS_IDLE] = "idle",
+};
+
+char *ioprio_class_string(int ioprio_class) {
+	if (ioprio_class < IOPRIO_CLASS_NONE ||  ioprio_class > IOPRIO_CLASS_IDLE)
+		return "unknown";
+
+	return ioprio_class_strings[ioprio_class];
 }
