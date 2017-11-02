@@ -426,10 +426,12 @@ struct eblob_backend {
 	pthread_mutex_t		defrag_lock;
 	pthread_mutex_t		sync_lock;
 	pthread_mutex_t		periodic_lock;
+	pthread_mutex_t		inspect_lock;
 
 	pthread_t		defrag_tid;
 	pthread_t		sync_tid;
 	pthread_t		periodic_tid;
+	pthread_t		inspect_tid;
 
 	/*
 	 * Last time when data.stat file was updated. Data statistics is being updated by periodic thread
@@ -468,6 +470,12 @@ struct eblob_backend {
 	 * it is used for determining that blob has been defraged
 	 */
 	size_t		defrag_generation;
+
+	/* Set when inspection are requested
+	 * 0: inspection isn't requested or inspection stop is requested if it is in progress
+	 * otherwise: inspection is requested and is in progress
+	 */
+	int			want_inspect;
 };
 
 int eblob_add_new_base(struct eblob_backend *b);
@@ -583,6 +591,9 @@ static inline const char *eblob_want_defrag_string(int want_defrag)
 		"%s (%d); " fmt, strerror(err), (int)err, ## __VA_ARGS__);
 
 char *eblob_dump_dc(const struct eblob_disk_control *dc, char *buffer, size_t size);
+
+int eblob_set_name(const char *format, ...);
+char *ioprio_class_string(int ioprio_class);
 
 #ifdef __cplusplus
 }

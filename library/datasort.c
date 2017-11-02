@@ -27,6 +27,7 @@
 
 #include "datasort.h"
 #include "blob.h"
+#include "ioprio.h"
 
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -1312,7 +1313,7 @@ static void datasort_cleanup(struct datasort_cfg *dcfg)
  */
 int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 {
-	int err, n;
+	int err, n, ioprio;
 
 	/* Sanity */
 	if (dcfg == NULL || dcfg->b == NULL || dcfg->bctl == NULL || dcfg->log == NULL)
@@ -1431,6 +1432,14 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 	for (n = 0; n < dcfg->bctl_cnt; ++n)
 		eblob_base_wait_locked(dcfg->bctl[n]);
 
+	/* set highest io priority level for best-effort class to minimize holding global locks time */
+	ioprio = eblob_ioprio_get();
+	if (ioprio == -1) {
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "defrag: ioprio_get: FAILED to get current ioprio");
+	} else if (eblob_ioprio_set(IOPRIO_PRIO_VALUE(IOPRIO_CLASS_BE, 0)) == -1) {
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "defrag: ioprio_set: FAILED to set higher ioprio");
+	}
+
 	/* Apply binlog */
 	err = datasort_binlog_apply(dcfg);
 	if (err != 0) {
@@ -1474,6 +1483,10 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 	/* Increase defrag_generation in order to interrupted operation could relookup keys.
 	 */
 	dcfg->b->defrag_generation += 1;
+
+	/* restore original io priority */
+	if ((ioprio == 0) && (eblob_ioprio_set(ioprio) == -1))
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "defrag: ioprio_set: FAILED to restore ioprio");
 
 	/* Unlock */
 	for (n = 0; n < dcfg->bctl_cnt; ++n)

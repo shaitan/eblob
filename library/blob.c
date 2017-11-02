@@ -51,6 +51,7 @@
 #include <unistd.h>
 
 #include "measure_points.h"
+#include "ioprio.h"
 
 #define DIFF(s, e) ((e).tv_sec - (s).tv_sec) * 1000000 + ((e).tv_usec - (s).tv_usec)
 
@@ -2882,6 +2883,15 @@ static void *eblob_sync_thread(void *data)
 {
 	struct eblob_backend *b = data;
 
+	eblob_set_name("sync_%u", b->cfg.stat_id);
+
+	if (b->cfg.bg_ioprio_class != IOPRIO_CLASS_NONE) {
+		if (eblob_ioprio_set(IOPRIO_PRIO_VALUE(b->cfg.bg_ioprio_class, b->cfg.bg_ioprio_data)) == -1) {
+			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "%s: failed to set ioprio: %s[%d]",
+			          __func__, strerror(errno), errno);
+		}
+	}
+
 	while (b->cfg.sync && (eblob_event_wait(&b->exit_event, b->cfg.sync) == -ETIMEDOUT)) {
 		eblob_sync(b);
 	}
@@ -2932,6 +2942,15 @@ static void *eblob_periodic_thread(void *data)
 {
 	struct eblob_backend *b = data;
 
+	eblob_set_name("periodic_%u", b->cfg.stat_id);
+
+	if (b->cfg.bg_ioprio_class != IOPRIO_CLASS_NONE) {
+		if (eblob_ioprio_set(IOPRIO_PRIO_VALUE(b->cfg.bg_ioprio_class, b->cfg.bg_ioprio_data)) == -1) {
+			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "%s: failed to set ioprio: %s[%d]",
+			          __func__, strerror(errno), errno);
+		}
+	}
+
 	while (eblob_event_wait(&b->exit_event, 1) == -ETIMEDOUT) {
 		eblob_periodic(b);
 	}
@@ -2979,6 +2998,172 @@ int eblob_periodic(struct eblob_backend *b)
 	return err;
 }
 
+int eblob_start_inspect(struct eblob_backend *b) {
+	if (b->cfg.blob_flags & EBLOB_DISABLE_THREADS)
+		return -EINVAL;
+
+	if (b->want_inspect == EBLOB_INSPECT_STATE_INSPECTING) {
+		eblob_log(b->cfg.log, EBLOB_LOG_INFO, "inspect: inspection is in progress.\n");
+		return -EALREADY;
+	}
+
+	b->want_inspect = EBLOB_INSPECT_STATE_INSPECTING;
+	return 0;
+}
+
+int eblob_stop_inspect(struct eblob_backend *b) {
+	if (b->cfg.blob_flags & EBLOB_DISABLE_THREADS)
+		return -EINVAL;
+
+	if (b->want_inspect == EBLOB_INSPECT_STATE_NOT_STARTED) {
+		eblob_log(b->cfg.log, EBLOB_LOG_INFO, "inspect: inspection is not started.\n");
+		return -EALREADY;
+	}
+
+	b->want_inspect = EBLOB_INSPECT_STATE_NOT_STARTED;
+	return 0;
+}
+
+int eblob_inspect_status(struct eblob_backend *b) {
+	if (b->cfg.blob_flags & EBLOB_DISABLE_THREADS)
+		return -EINVAL;
+
+	return b->want_inspect;
+}
+
+/**
+ * eblob_inspect_thread() - executes eblob_inspect() if b->want_inspect was set.
+ */
+static void *eblob_inspect_thread(void *data) {
+	struct eblob_backend *b = data;
+
+	eblob_set_name("inspect_%u", b->cfg.stat_id);
+
+	if (b->cfg.bg_ioprio_class != IOPRIO_CLASS_NONE) {
+		if (eblob_ioprio_set(IOPRIO_PRIO_VALUE(b->cfg.bg_ioprio_class, b->cfg.bg_ioprio_data)) == -1) {
+			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "%s: failed to set ioprio: %s[%d]",
+			          __func__, strerror(errno), errno);
+		}
+	}
+
+	while(eblob_event_wait(&b->exit_event, 1) == -ETIMEDOUT) {
+		if (b->want_inspect) {
+			eblob_inspect(b);
+			b->want_inspect = 0;
+		}
+	}
+	return NULL;
+}
+
+/**
+ * eblob_inspect_record() - inspects one record addressed by @dc
+ */
+static int eblob_inspect_record(struct eblob_base_ctl *bctl, struct eblob_disk_control *dc, uint64_t index_offset) {
+	int err;
+	struct eblob_write_control wc;
+
+	memset(&wc, 0, sizeof(wc));
+	eblob_dc_to_wc(dc, &wc);
+	wc.bctl = bctl;
+	wc.index = bctl->index;
+	wc.data_fd = bctl->data_ctl.fd;
+	wc.ctl_data_offset = dc->position;
+	wc.index_fd = bctl->index_ctl.fd;
+	wc.ctl_index_offset = index_offset;
+
+	eblob_log(bctl->back->cfg.log, EBLOB_LOG_NOTICE, "inspect: i%d: inspecting record: %s\n", bctl->index,
+	          eblob_dump_id(dc->key.id));
+
+	// TODO: there should be more cases, so we can find, fix and/or mark headers' mismatch or invalidity
+	err = eblob_verify_checksum(bctl->back, &dc->key, &wc);
+	if (err == -EILSEQ)
+		err = 0; // ignore -EILSEQ error since corruption was already marked by eblob_verify_checksum()
+	return err;
+}
+
+/**
+ * eblob_inspect_bctl() - inspects one base addressed by @bctl
+ */
+static int eblob_inspect_bctl(struct eblob_base_ctl *bctl) {
+	int err = 0;
+	size_t index_size;
+	size_t read_offset, block_offset;
+	struct eblob_disk_control dc_block[100];
+	size_t read_size = sizeof(dc_block);
+	int read_err;
+	struct eblob_disk_control *dc, *dc_block_end;
+
+	eblob_bctl_hold(bctl);
+	if (eblob_binlog_enabled(&bctl->binlog)) {
+		eblob_log(bctl->back->cfg.log, EBLOB_LOG_INFO, "inspect: i%d: binlog enabled, skip the base\n",
+		          bctl->index);
+		eblob_bctl_release(bctl);
+		return 0;
+	}
+	// fix index_size to prevent validating incomplete recently added records
+	index_size = bctl->index_ctl.size;
+	pthread_mutex_unlock(&bctl->back->lock);
+
+	/* TODO: we should prevent overwriting/removing a key that can lead to checksum verification and other failures.
+	 * We can use binlog for it, but it requires applying binlog afterwards.
+	 */
+	eblob_log(bctl->back->cfg.log, EBLOB_LOG_INFO, "inspect: i%d: start the blob inspection\n", bctl->index);
+
+	for(read_offset = 0; read_offset < index_size && bctl->back->want_inspect; read_offset += read_size) {
+		read_size = EBLOB_MIN(read_size, index_size - read_offset);
+		read_err = __eblob_read_ll(bctl->index_ctl.fd, dc_block, read_size, read_offset);
+		if (read_err) {
+			eblob_log(bctl->back->cfg.log, EBLOB_LOG_ERROR, "inspect: i%d: failed to read index: fd: %d, "
+			                                                "read-offset: %zu, read-size: %zu, size: %"
+			                                                PRIu64 ": %s [%d]\n",
+			          bctl->index, bctl->index_ctl.fd, read_offset, read_size, index_size,
+			          strerror(-read_err), read_err);
+			err = read_err;
+			break;
+		}
+
+		dc_block_end  = dc_block + (read_size / sizeof(struct eblob_disk_control));
+		for (dc = dc_block; dc < dc_block_end && bctl->back->want_inspect; ++dc) {
+			eblob_convert_disk_control(dc);
+			// skip removed, uncommitted and records without checksum
+			if (dc->flags & (BLOB_DISK_CTL_REMOVE|BLOB_DISK_CTL_UNCOMMITTED|BLOB_DISK_CTL_NOCSUM))
+				continue;
+			block_offset = (void*)dc - (void*)dc_block;
+			err = eblob_inspect_record(bctl, dc, read_offset + block_offset);
+		}
+	}
+	pthread_mutex_lock(&bctl->back->lock);
+	eblob_bctl_release(bctl);
+	eblob_log(bctl->back->cfg.log, EBLOB_LOG_INFO, "inspect: i%d: finish the blob inspection\n", bctl->index);
+
+	return err;
+}
+
+/**
+ * eblob_inspect() - perform checksum verification for all data
+ */
+int eblob_inspect(struct eblob_backend *b) {
+	int err = 0;
+	struct eblob_base_ctl *it, *tmp;
+
+	pthread_mutex_lock(&b->inspect_lock);
+	eblob_log(b->cfg.log, EBLOB_LOG_INFO, "inspect: started\n");
+
+	pthread_mutex_lock(&b->lock);
+	list_for_each_entry_safe_reverse(it, tmp, &b->bases, base_entry) {
+		if (!b->want_inspect)
+			break;
+
+		// eblob_inspect_bctl will release @b->lock at the start and lock it at the end
+		err = eblob_inspect_bctl(it);
+	}
+	pthread_mutex_unlock(&b->lock);
+
+	eblob_log(b->cfg.log, EBLOB_LOG_INFO, "inspect: finished\n");
+	pthread_mutex_unlock(&b->inspect_lock);
+	return err;
+}
+
 void eblob_cleanup(struct eblob_backend *b)
 {
 	eblob_event_set(&b->exit_event);
@@ -2987,6 +3172,7 @@ void eblob_cleanup(struct eblob_backend *b)
 		pthread_join(b->sync_tid, NULL);
 		pthread_join(b->defrag_tid, NULL);
 		pthread_join(b->periodic_tid, NULL);
+		pthread_join(b->inspect_tid, NULL);
 	}
 
 	eblob_json_stat_destroy(b);
@@ -3096,6 +3282,11 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 		c->periodic_timeout = EBLOB_DEFAULT_PERIODIC_THREAD_TIMEOUT;
 	}
 
+	if (c->bg_ioprio_class < IOPRIO_CLASS_NONE ||
+	    c->bg_ioprio_class > IOPRIO_CLASS_IDLE) {
+		c->bg_ioprio_class = IOPRIO_CLASS_NONE;
+	}
+
 	memcpy(&b->cfg, c, sizeof(struct eblob_config));
 
 	b->cfg.file = strdup(c->file);
@@ -3174,9 +3365,13 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 	if (err != 0)
 		goto err_out_sync_lock_destroy;
 
-	err = eblob_json_stat_init(b);
+	err = eblob_mutex_init(&b->inspect_lock);
 	if (err != 0)
 		goto err_out_periodic_lock_destroy;
+
+	err = eblob_json_stat_init(b);
+	if (err != 0)
+		goto err_out_inspect_lock_destroy;
 
 	if (!(b->cfg.blob_flags & EBLOB_DISABLE_THREADS)) {
 		err = pthread_create(&b->sync_tid, NULL, eblob_sync_thread, b);
@@ -3197,10 +3392,19 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 			goto err_out_join_defrag;
 		}
 
+		err = pthread_create(&b->inspect_tid, NULL, eblob_inspect_thread, b);
+		if (err) {
+			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: eblob inspect thread creation failed: %d", err);
+			goto err_out_join_periodic;
+		}
+
 	}
 
 	return b;
 
+err_out_join_periodic:
+	eblob_event_set(&b->exit_event);
+	pthread_join(b->periodic_tid, NULL);
 err_out_join_defrag:
 	eblob_event_set(&b->exit_event);
 	pthread_join(b->defrag_tid, NULL);
@@ -3209,6 +3413,8 @@ err_out_join_sync:
 	pthread_join(b->sync_tid, NULL);
 err_out_json_stat_destroy:
 	eblob_json_stat_destroy(b);
+err_out_inspect_lock_destroy:
+	pthread_mutex_destroy(&b->inspect_lock);
 err_out_periodic_lock_destroy:
 	pthread_mutex_destroy(&b->periodic_lock);
 err_out_sync_lock_destroy:
@@ -3318,25 +3524,27 @@ static void eblob_mark_entry_corrupted(struct eblob_backend *b, struct eblob_key
 	assert(key != NULL);
 	assert(wc != NULL);
 
-	struct eblob_base_ctl *bctl = NULL, *it = NULL;
+	struct eblob_base_ctl *bctl = wc->bctl, *it = NULL;
 
 	// check that record is not marked corrupted yet
 	if (wc->flags & BLOB_DISK_CTL_CORRUPTED)
 		return;
 
-	// TODO(shaitan): bad idea to use global lock
-	pthread_mutex_lock(&b->lock);
-	// Tries to find bctl by its index from @wc
-	list_for_each_entry(it, &b->bases, base_entry) {
-		if (it->index == wc->index) {
-			bctl = it;
-			break;
+	// if @wc->bctl wasn't set, find it by index
+	if (!bctl) {
+		pthread_mutex_lock(&b->lock);
+		// Tries to find bctl by its index from @wc
+		list_for_each_entry(it, &b->bases, base_entry) {
+			if (it->index == wc->index) {
+				bctl = it;
+				break;
+			}
 		}
+		// if bctl is found, hold it to protect from defrag
+		if (bctl)
+			eblob_bctl_hold(bctl);
+		pthread_mutex_unlock(&b->lock);
 	}
-	// if bctl is found, hold it to protect from defrag
-	if (bctl)
-		eblob_bctl_hold(bctl);
-	pthread_mutex_unlock(&b->lock);
 
 	// offsets from wc are out-dated and can not be used if bctl is not found or it was defraged
 	if (!bctl || bctl->index_ctl.fd != wc->index_fd || bctl->data_ctl.fd != wc->data_fd)
@@ -3346,11 +3554,19 @@ static void eblob_mark_entry_corrupted(struct eblob_backend *b, struct eblob_key
 	if (eblob_binlog_enabled(&bctl->binlog))
 		goto err_out_release_bctl;
 
-	if (eblob_mark_header_corrupted(b, key, wc->index_fd, wc->ctl_index_offset))
+	if (eblob_mark_header_corrupted(b, key, wc->index_fd, wc->ctl_index_offset)) {
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: i%d: failed to mark corrupted record in index: offset:  %"
+		                                       PRIu64 "\n",
+		          wc->index, wc->ctl_index_offset);
 		goto err_out_release_bctl;
+	}
 
-	if (eblob_mark_header_corrupted(b, key, wc->data_fd, wc->ctl_data_offset))
+	if (eblob_mark_header_corrupted(b, key, wc->data_fd, wc->ctl_data_offset)) {
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: i%d: failed to mark corrupted in data: offset:  %"
+		                                       PRIu64 "\n",
+		          wc->index, wc->ctl_data_offset);
 		goto err_out_release_bctl;
+	}
 
 	eblob_stat_inc(bctl->stat, EBLOB_LST_RECORDS_CORRUPTED);
 	eblob_stat_add(bctl->stat, EBLOB_LST_CORRUPTED_SIZE, wc->total_size);
@@ -3363,14 +3579,15 @@ static void eblob_mark_entry_corrupted(struct eblob_backend *b, struct eblob_key
 	}
 
 err_out_release_bctl:
-	eblob_bctl_release(bctl);
+	if (!wc->bctl)
+		eblob_bctl_release(bctl);
 err_out:
 	return;
 }
 
 int eblob_verify_checksum(struct eblob_backend *b, struct eblob_key *key, struct eblob_write_control *wc) {
 	if (b->cfg.blob_flags & EBLOB_NO_FOOTER ||
-	    wc->flags & BLOB_DISK_CTL_NOCSUM)
+	    wc->flags & (BLOB_DISK_CTL_NOCSUM | BLOB_DISK_CTL_REMOVE | BLOB_DISK_CTL_UNCOMMITTED))
 		return 0;
 
 	if (wc->total_size <= wc->total_data_size + sizeof(struct eblob_disk_control)) {
@@ -3393,4 +3610,31 @@ int eblob_verify_checksum(struct eblob_backend *b, struct eblob_key *key, struct
 		eblob_mark_entry_corrupted(b, key, wc);
 
 	return err;
+}
+
+int eblob_set_name(const char *format, ...) {
+	char name[16 + 1];
+	memset(name, 0, sizeof(name));
+
+
+	va_list args;
+	va_start(args, format);
+	vsnprintf(name, sizeof(name), format, args);
+	va_end(args);
+
+	return pthread_setname_np(pthread_self(), name);
+}
+
+static char *ioprio_class_strings[] = {
+	[IOPRIO_CLASS_NONE] = "none",
+	[IOPRIO_CLASS_RT] = "real-time",
+	[IOPRIO_CLASS_BE] = "best-effort",
+	[IOPRIO_CLASS_IDLE] = "idle",
+};
+
+char *ioprio_class_string(int ioprio_class) {
+	if (ioprio_class < IOPRIO_CLASS_NONE ||  ioprio_class > IOPRIO_CLASS_IDLE)
+		return "unknown";
+
+	return ioprio_class_strings[ioprio_class];
 }

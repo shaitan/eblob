@@ -229,10 +229,9 @@ int eblob_index_blocks_fill(struct eblob_base_ctl *bctl)
 	struct eblob_index_block *block = NULL;
 	struct eblob_disk_control dc, prev;
 	uint64_t block_count, block_id = 0, err_count = 0, offset = 0, prev_offset = 0;
-	int64_t removed = 0;
-	int64_t removed_size = 0;
-	int64_t uncommitted = 0;
-	int64_t uncommitted_size = 0;
+	int64_t removed = 0, removed_size = 0;
+	int64_t uncommitted = 0, uncommitted_size = 0;
+	int64_t corrupted = 0, corrupted_size = 0;
 	unsigned int i;
 	int err = 0;
 	int prev_filled = 0;
@@ -350,6 +349,10 @@ int eblob_index_blocks_fill(struct eblob_base_ctl *bctl)
 					uncommitted++;
 					uncommitted_size += dc.disk_size + sizeof(struct eblob_disk_control);
 				}
+				if (dc.flags & eblob_bswap64(BLOB_DISK_CTL_CORRUPTED)) {
+					++corrupted;
+					corrupted_size += dc.disk_size + sizeof(struct eblob_disk_control);
+				}
 				eblob_bloom_set(bctl, &dc.key);
 			}
 
@@ -363,6 +366,8 @@ int eblob_index_blocks_fill(struct eblob_base_ctl *bctl)
 	eblob_stat_set(bctl->stat, EBLOB_LST_REMOVED_SIZE, removed_size);
 	eblob_stat_set(bctl->stat, EBLOB_LST_RECORDS_UNCOMMITTED, uncommitted);
 	eblob_stat_set(bctl->stat, EBLOB_LST_UNCOMMITTED_SIZE, uncommitted_size);
+	eblob_stat_set(bctl->stat, EBLOB_LST_RECORDS_CORRUPTED, corrupted);
+	eblob_stat_set(bctl->stat, EBLOB_LST_CORRUPTED_SIZE, corrupted_size);
 	return 0;
 
 err_out_drop_tree:

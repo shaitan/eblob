@@ -15,7 +15,7 @@ extern "C" {
 
 struct json_stat_cache {
 	json_stat_cache()
-	: timestamp({0, 0})
+	: timestamp{0, 0}
 	{}
 
 	std::string		json;
@@ -77,6 +77,9 @@ static void eblob_stat_config_json(struct eblob_backend *b, rapidjson::Value &st
 	stat.AddMember("blob_size_limit", b->cfg.blob_size_limit, allocator);
 	stat.AddMember("defrag_time", b->cfg.defrag_time, allocator);
 	stat.AddMember("defrag_splay", b->cfg.defrag_splay, allocator);
+	stat.AddMember("bg_ioprio_class", b->cfg.bg_ioprio_class, allocator);
+	stat.AddMember("bg_ioprio_data", b->cfg.bg_ioprio_data, allocator);
+	stat.AddMember("string_bg_ioprio_class", ioprio_class_string(b->cfg.bg_ioprio_class), allocator);
 }
 
 static char *get_dir_path(const char *data_path) {

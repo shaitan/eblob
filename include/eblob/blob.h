@@ -420,9 +420,15 @@ struct eblob_config {
 	 */
 	char			*chunks_dir;
 
+	/* IO nice parameters for background threads.
+	 * for more details: http://man7.org/linux/man-pages/man2/ioprio_set.2.html
+	 */
+	int			bg_ioprio_class;  // one of IOPRIO_CLASS_*
+	int			bg_ioprio_data; // priority level within @bg_ioprio_class
+
 	/* for future use */
 	uint64_t		__pad_64[8];
-	int			__pad_int[5];
+	int			__pad_int[3];
 	char			__pad_char[8];
 	void			*__pad_voidp[7];
 };
@@ -756,6 +762,25 @@ int eblob_stat_json_get(struct eblob_backend *b, char **json_stat, size_t *size)
 int eblob_sync(struct eblob_backend *b);
 int eblob_defrag(struct eblob_backend *b);
 int eblob_periodic(struct eblob_backend *b);
+int eblob_inspect(struct eblob_backend *b);
+
+enum eblob_inspect_state {
+	EBLOB_INSPECT_STATE_NOT_STARTED,	/* no inspection is in progress */
+	EBLOB_INSPECT_STATE_INSPECTING		/* inspection is in progress */
+};
+
+/**
+ * eblob_start_inspect() - start inspection in background thread
+ */
+int eblob_start_inspect(struct eblob_backend *b);
+/**
+ * eblob_stop_inspect() - stop inspection in background thread
+ */
+int eblob_stop_inspect(struct eblob_backend *b);
+/**
+ * eblob_inspect_status() - get current state of background inspection
+ */
+int eblob_inspect_status(struct eblob_backend *b);
 
 struct eblob_flag_info {
 	uint64_t flag;
