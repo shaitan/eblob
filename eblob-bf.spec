@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.23.12
+Version:	0.24.0
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -108,6 +108,23 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Thu Nov 02 2017 Kirill Smorodinnikov <shaitkir@gmail.com> - 0.24.0
+- Fix typo: useless brackets
+- Allow to set ioprio to internal threads: defrag, periodic etc.
+- Set name to internal threads: periodic, defrag etc.
+- Add backgound inspection
+- Fix returning wrong error by eblob_index_blocks_fill()
+- build: use proper variables for boost libraries
+- Update .gitignore
+- handystats: remove duplicates from CMakeLists
+- build: add "./" to include_directories
+- tests: add eblob_corruption_test unit test
+- logger: use stderr by default (not stdout)
+- Add BLOB_DISK_CTL_CORRUPTED flag
+- build: allow parallel build
+- tests: avoid using "/dev/stdout"
+- Revert "quigon build fix: don't use /dev/stdout from forked processes"
+
 * Wed Jan 06 2016 Evgeniy Polyakov <zbr@ioremap.net> - 0.23.12
 - merge: fixed tool to use sorted index if unsorted is not available
 - blob: added eblob_dump_dc() function which prints disk control structure into provided buffer
