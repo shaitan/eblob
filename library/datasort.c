@@ -851,9 +851,9 @@ static inline uint64_t datasort_merge_index_size(struct list_head *lst)
  */
 static struct datasort_chunk *datasort_merge(struct datasort_cfg *dcfg)
 {
-	struct datasort_chunk *chunk, *merged_chunk;
-	uint64_t total_items;
-	int err;
+	struct datasort_chunk *chunk = NULL, *merged_chunk = NULL;
+	uint64_t total_items = 0;
+	int err = 0;
 
 	assert(dcfg != NULL);
 	assert(list_empty(&dcfg->sorted_chunks) == 0);
@@ -863,8 +863,10 @@ static struct datasort_chunk *datasort_merge(struct datasort_cfg *dcfg)
 
 	/* Create resulting chunk */
 	merged_chunk = datasort_add_chunk(dcfg, dcfg->dir);
-	if (merged_chunk == NULL)
+	if (merged_chunk == NULL) {
+		EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR, "defrag: %s: datasort_add_chunk: FAILED", __func__);
 		goto err;
+	}
 
 	/* Compute and allocate space for indexes */
 	total_items = datasort_merge_index_size(&dcfg->sorted_chunks);
@@ -913,7 +915,8 @@ static struct datasort_chunk *datasort_merge(struct datasort_cfg *dcfg)
 
 err:
 	EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR, "merge: FAILED");
-	datasort_destroy_chunk(dcfg, merged_chunk);
+	if (merged_chunk)
+		datasort_destroy_chunk(dcfg, merged_chunk);
 	datasort_destroy_chunks(dcfg, &dcfg->sorted_chunks);
 	return NULL;
 }
