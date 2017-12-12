@@ -1,3 +1,9 @@
+eblob (0.24.1) unstable; urgency=medium
+
+  * Fix crash on unfilled `merged_chunk`
+
+ -- Kirill Smorodinnikov <shaitkir@gmail.com>  Tue, 12 Dec 2017 12:51:38 +0300
+
 eblob (0.24.0) unstable; urgency=medium
 
   * Fix typo: useless brackets

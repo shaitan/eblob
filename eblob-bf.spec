@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.24.0
+Version:	0.24.1
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -108,6 +108,9 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Tue Dec 12 2017 Kirill Smorodinnikov <shaitkir@gmail.com> - 0.24.1
+- Fix crash on unfilled `merged_chunk`
+
 * Thu Nov 02 2017 Kirill Smorodinnikov <shaitkir@gmail.com> - 0.24.0
 - Fix typo: useless brackets
 - Allow to set ioprio to internal threads: defrag, periodic etc.
