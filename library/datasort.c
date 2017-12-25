@@ -1488,7 +1488,7 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 	dcfg->b->defrag_generation += 1;
 
 	/* restore original io priority */
-	if ((ioprio == 0) && (eblob_ioprio_set(ioprio) == -1))
+	if ((ioprio != -1) && (eblob_ioprio_set(ioprio) == -1))
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "defrag: ioprio_set: FAILED to restore ioprio");
 
 	/* Unlock */
@@ -1500,6 +1500,10 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 	return 0;
 
 err_unlock_bctl:
+	/* restore original io priority */
+	if ((ioprio != -1) && (eblob_ioprio_set(ioprio) == -1))
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "defrag: ioprio_set: FAILED to restore ioprio");
+
 	for (n = 0; n < dcfg->bctl_cnt; ++n)
 		pthread_mutex_unlock(&dcfg->bctl[n]->lock);
 	pthread_mutex_unlock(&dcfg->b->lock);
