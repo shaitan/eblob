@@ -7,6 +7,7 @@ add_library(eblob_cpp SHARED ${EBLOB_CPP_SRCS})
 set_target_properties(eblob_cpp PROPERTIES
     VERSION ${EBLOB_VERSION}
     SOVERSION ${EBLOB_VERSION_ABI}
+    LINK_FLAGS -Wl,--version-script=${CMAKE_SOURCE_DIR}/eblob.version
     )
 target_link_libraries(eblob_cpp ${EBLOB_CPP_LIBRARIES} eblob)
 
