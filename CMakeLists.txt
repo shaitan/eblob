@@ -136,6 +136,7 @@ include_directories(
 	${CMAKE_SOURCE_DIR}/include/
 	${Boost_INCLUDE_DIRS}
 	${CMAKE_SOURCE_DIR}/
+	${CMAKE_SOURCE_DIR}/foreign/rapidjson/include/
 )
 
 link_directories(

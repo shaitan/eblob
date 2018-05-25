@@ -24,6 +24,7 @@ set_target_properties(eblob PROPERTIES
     VERSION ${EBLOB_VERSION}
     SOVERSION ${EBLOB_VERSION_ABI}
     LINKER_LANGUAGE CXX
+    LINK_FLAGS -Wl,--version-script=${CMAKE_SOURCE_DIR}/eblob.version
     )
 
 target_link_libraries(eblob ${EBLOB_LIBRARIES} ${Boost_SYSTEM_LIBRARIES} handystats rt)
