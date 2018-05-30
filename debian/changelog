@@ -1,3 +1,10 @@
+eblob (0.24.3) unstable; urgency=low
+
+  * Switch to rapidjson in submodule
+  * Hide rapidjson symbols from library
+
+ -- Kirill Smorodinnikov <shaitkir@gmail.com>  Wed, 30 May 2018 11:13:43 +0300
+
 eblob (0.24.2) unstable; urgency=medium
 
   * ioprio: fix non-restoring prio in defrag
