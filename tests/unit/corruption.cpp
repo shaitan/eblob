@@ -305,4 +305,19 @@ BOOST_AUTO_TEST_CASE(test_inspection) {
 		);
 		BOOST_REQUIRE_EQUAL(eblob_stat_get(wrapper.get()->stat_summary, EBLOB_LST_RECORDS_CORRUPTED), --count);
 	}
+
+	{
+		//remove all corrupted key should set corrupted records and size to 0
+		for (size_t i = 20; i < keys_number; i += 10) {
+			auto key = hash(std::to_string(i));
+			BOOST_REQUIRE_EQUAL(eblob_remove(wrapper.get(), &key), 0);
+			BOOST_REQUIRE_EQUAL(eblob_stat_get(wrapper.get()->stat_summary, EBLOB_LST_RECORDS_CORRUPTED),
+			                    --count);
+		}
+
+		BOOST_REQUIRE_EQUAL(count, 0);
+		BOOST_REQUIRE_EQUAL(eblob_stat_get(wrapper.get()->stat_summary, EBLOB_LST_RECORDS_CORRUPTED), 0);
+		BOOST_REQUIRE_EQUAL(eblob_stat_get(wrapper.get()->stat_summary, EBLOB_LST_CORRUPTED_SIZE), 0);
+
+	}
 }
