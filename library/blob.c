@@ -3568,10 +3568,11 @@ static void eblob_mark_entry_corrupted(struct eblob_backend *b, struct eblob_key
 		goto err_out_release_bctl;
 	}
 
+	const int64_t record_size = wc->total_size + sizeof(struct eblob_disk_control);
 	eblob_stat_inc(bctl->stat, EBLOB_LST_RECORDS_CORRUPTED);
-	eblob_stat_add(bctl->stat, EBLOB_LST_CORRUPTED_SIZE, wc->total_size);
+	eblob_stat_add(bctl->stat, EBLOB_LST_CORRUPTED_SIZE, record_size);
 	eblob_stat_inc(b->stat_summary, EBLOB_LST_RECORDS_CORRUPTED);
-	eblob_stat_add(b->stat_summary, EBLOB_LST_CORRUPTED_SIZE, wc->total_size);
+	eblob_stat_add(b->stat_summary, EBLOB_LST_CORRUPTED_SIZE, record_size);
 
 	if (!b->cfg.sync) {
 		eblob_fdatasync(wc->index_fd);
