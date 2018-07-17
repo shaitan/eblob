@@ -1,3 +1,9 @@
+eblob (0.24.4) unstable; urgency=low
+
+  * Fix incorrect values in size of corrupted records
+
+ -- Kirill Smorodinnikov <shaitkir@gmail.com>  Tue, 17 Jul 2018 16:43:34 +0300
+
 eblob (0.24.3) unstable; urgency=low
 
   * Switch to rapidjson in submodule
