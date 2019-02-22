@@ -1,3 +1,10 @@
+eblob (0.24.6) unstable; urgency=low
+
+  * sha512: remove duplicated code
+  * sha512: avoid reading unnecessary data
+
+ -- Kirill Smorodinnikov <shaitkir@gmail.com>  Fri, 22 Feb 2019 17:17:55 +0300
+
 eblob (0.24.5) unstable; urgency=low
 
   * mark corrupted only records with -EILSEQ on checksum verification
