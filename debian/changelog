@@ -1,3 +1,12 @@
+eblob (0.24.8) unstable; urgency=low
+
+  * Remove unused include "unlocked-io.h"
+  * Use __typeof__() instead of typeof()
+  * Fix include for handystats measuring points stubs
+  * add view chunks over bases
+
+ -- Kirill Smorodinnikov <shaitkir@gmail.com>  Mon, 03 Jun 2019 17:52:39 +0300
+
 eblob (0.24.7) unstable; urgency=low
 
   * defrag: call fdatasync during datasort
