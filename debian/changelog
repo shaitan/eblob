@@ -1,3 +1,12 @@
+eblob (0.24.10) unstable; urgency=low
+
+  * remove force argument in eblob_base_setup_base
+  * feat: single-pass blob sorting
+  * tests: test single-pass defrag
+  * fix: add missing config fields in json stats
+
+ -- Kirill Smorodinnikov <shaitkir@gmail.com>  Thu, 06 Jun 2019 12:23:29 +0300
+
 eblob (0.24.9) unstable; urgency=low
 
   * Allow to trigger defrag using specified directory for chunks
